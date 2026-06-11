@@ -132,16 +132,22 @@ ${buildParameterXml(params)}
 </Response>`;
 }
 
-function inboundTwiml(req, twilioParams) {
+async function localizedGreeting(greeting, languageCode) {
+  if (!languageCode || languageCode === 'en' || languageCode.startsWith('en-')) return greeting;
+  return translateText(greeting, 'en', languageCode);
+}
+
+async function inboundTwiml(req, twilioParams) {
   const combo = isTestMode() ? nextCombo() : null;
   const context = callerContext(twilioParams, combo);
   if (combo) log('test mode combo', { id: combo.id, label: combo.label });
+  const greeting = combo
+    ? `Test combo ${combo.id}: ${combo.label}. Please wait while we connect you to a translator.`
+    : 'Please wait while we connect you to a translator.';
   return buildConversationRelayTwiml({
     wsUrl: getWsUrl(req),
     relay: {
-      welcomeGreeting: combo
-        ? `Test combo ${combo.id}: ${combo.label}. Please wait while we connect you to a translator.`
-        : 'Please wait while we connect you to a translator.',
+      welcomeGreeting: await localizedGreeting(greeting, context.sourceLanguageCode),
       dtmfDetection: 'false',
       interruptByDtmf: 'false',
       language: context.sourceLanguage,
@@ -154,7 +160,7 @@ function inboundTwiml(req, twilioParams) {
   });
 }
 
-function outboundAgentTwiml(callerParty) {
+async function outboundAgentTwiml(callerParty) {
   const combo = isTestMode() && callerParty.testComboId ? getCombo(callerParty.testComboId) : null;
   const context = agentContext(combo);
   const params = {
@@ -182,7 +188,7 @@ function outboundAgentTwiml(callerParty) {
       .replace(/^https:/, 'wss:')
       .replace(/^http:/, 'ws:'),
     relay: {
-      welcomeGreeting: 'Initiating translation session.',
+      welcomeGreeting: await localizedGreeting('Initiating translation session.', context.sourceLanguageCode),
       dtmfDetection: 'false',
       interruptByDtmf: 'false',
       language: context.sourceLanguage,
@@ -268,7 +274,7 @@ async function maybeDialAgent(callerParty) {
   }
 
   const from = callerParty.To || process.env.TWILIO_DEFAULT_FROM;
-  const twiml = outboundAgentTwiml(callerParty);
+  const twiml = await outboundAgentTwiml(callerParty);
   const call = await createTwilioCall({ to: process.env.AGENT_PHONE_NUMBER, from, twiml });
   callerParty.targetCallSid = call.sid;
   log('Dialed agent:', call.sid);
@@ -439,7 +445,7 @@ const server = http.createServer(async (req, res) => {
 
     if (url.pathname === '/twiml/inbound') {
       const params = await parseTwilioRequest(req);
-      const twiml = inboundTwiml(req, params);
+      const twiml = await inboundTwiml(req, params);
       log('served inbound TwiML', { from: params.From, to: params.To, wsUrl: getWsUrl(req) });
       send(res, 200, twiml, 'application/xml');
       return;

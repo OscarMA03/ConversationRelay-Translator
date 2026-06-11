@@ -24,8 +24,9 @@ test('matrix covers all three Polly tiers with Deepgram STT pinned', () => {
     assert.equal(combo.speechModel, 'nova-3-general');
     assert.equal(combo.ttsProvider, 'Amazon');
   }
-  assert.deepEqual(COMBOS.map((c) => c.callerVoice), ['Matthew-Generative', 'Matthew-Neural', 'Matthew']);
-  assert.deepEqual(COMBOS.map((c) => c.agentVoice), ['Lupe-Generative', 'Lupe-Neural', 'Lupe']);
+  // Caller speaks/hears Spanish, agent speaks/hears English
+  assert.deepEqual(COMBOS.map((c) => c.callerVoice), ['Lupe-Generative', 'Lupe-Neural', 'Lupe']);
+  assert.deepEqual(COMBOS.map((c) => c.agentVoice), ['Matthew-Generative', 'Matthew-Neural', 'Matthew']);
 });
 
 test('getCombo accepts numeric strings and throws with valid ids', () => {

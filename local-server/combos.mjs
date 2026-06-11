@@ -5,6 +5,9 @@
  * Google), so STT stays pinned at Deepgram nova-3 and the only variable is
  * the Amazon Polly TTS tier. Add rows here to test other providers later
  * (e.g. ElevenLabs, Google Chirp3-HD, Deepgram flux).
+ *
+ * Voices are per leg: the caller speaks/hears Spanish (Lupe), the agent
+ * speaks/hears English (Matthew). Swap them if the call direction changes.
  */
 export const COMBOS = [
   {
@@ -13,8 +16,8 @@ export const COMBOS = [
     transcriptionProvider: 'Deepgram',
     speechModel: 'nova-3-general',
     ttsProvider: 'Amazon',
-    callerVoice: 'Matthew-Generative',
-    agentVoice: 'Lupe-Generative'
+    callerVoice: 'Lupe-Generative',
+    agentVoice: 'Matthew-Generative'
   },
   {
     id: 2,
@@ -22,8 +25,8 @@ export const COMBOS = [
     transcriptionProvider: 'Deepgram',
     speechModel: 'nova-3-general',
     ttsProvider: 'Amazon',
-    callerVoice: 'Matthew-Neural',
-    agentVoice: 'Lupe-Neural'
+    callerVoice: 'Lupe-Neural',
+    agentVoice: 'Matthew-Neural'
   },
   {
     id: 3,
@@ -31,8 +34,8 @@ export const COMBOS = [
     transcriptionProvider: 'Deepgram',
     speechModel: 'nova-3-general',
     ttsProvider: 'Amazon',
-    callerVoice: 'Matthew',
-    agentVoice: 'Lupe'
+    callerVoice: 'Lupe',
+    agentVoice: 'Matthew'
   }
 ];
 
