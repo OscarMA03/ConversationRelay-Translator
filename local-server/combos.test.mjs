@@ -17,16 +17,20 @@ function stubEnv(t, vars) {
   });
 }
 
-test('matrix covers all three Polly tiers with Deepgram STT pinned', () => {
-  assert.equal(COMBOS.length, 3);
+test('matrix covers the Polly tiers plus ElevenLabs Flash with Deepgram STT pinned', () => {
+  assert.equal(COMBOS.length, 4);
   for (const combo of COMBOS) {
     assert.equal(combo.transcriptionProvider, 'Deepgram');
     assert.equal(combo.speechModel, 'nova-3-general');
-    assert.equal(combo.ttsProvider, 'Amazon');
   }
+  assert.deepEqual(COMBOS.map((c) => c.ttsProvider), ['Amazon', 'Amazon', 'Amazon', 'ElevenLabs']);
   // Caller speaks/hears Spanish, agent speaks/hears English
-  assert.deepEqual(COMBOS.map((c) => c.callerVoice), ['Lupe-Generative', 'Lupe-Neural', 'Lupe']);
-  assert.deepEqual(COMBOS.map((c) => c.agentVoice), ['Matthew-Generative', 'Matthew-Neural', 'Matthew']);
+  assert.deepEqual(COMBOS.map((c) => c.callerVoice), [
+    'Lupe-Generative', 'Lupe-Neural', 'Lupe', 'CaJslL1xziwefCeTNzHv-flash_v2_5'
+  ]);
+  assert.deepEqual(COMBOS.map((c) => c.agentVoice), [
+    'Matthew-Generative', 'Matthew-Neural', 'Matthew', 'UgBBYS2sOqTuMpoF3BR0-flash_v2_5'
+  ]);
 });
 
 test('getCombo accepts numeric strings and throws with valid ids', () => {
@@ -39,8 +43,8 @@ test('nextCombo rotates through the matrix and wraps', (t) => {
   resetRotation();
   t.after(resetRotation);
   assert.deepEqual(
-    [nextCombo().id, nextCombo().id, nextCombo().id, nextCombo().id],
-    [1, 2, 3, 1]
+    [nextCombo().id, nextCombo().id, nextCombo().id, nextCombo().id, nextCombo().id],
+    [1, 2, 3, 4, 1]
   );
 });
 

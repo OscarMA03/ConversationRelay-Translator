@@ -36,6 +36,17 @@ export const COMBOS = [
     ttsProvider: 'Amazon',
     callerVoice: 'Lupe',
     agentVoice: 'Matthew'
+  },
+  {
+    id: 4,
+    label: 'ElevenLabs Flash v2.5',
+    transcriptionProvider: 'Deepgram',
+    speechModel: 'nova-3-general',
+    ttsProvider: 'ElevenLabs',
+    // Twilio's default ConversationRelay ElevenLabs voices (es-US / en-US),
+    // pinned to the flash_v2_5 model via the -model suffix.
+    callerVoice: 'CaJslL1xziwefCeTNzHv-flash_v2_5',
+    agentVoice: 'UgBBYS2sOqTuMpoF3BR0-flash_v2_5'
   }
 ];
 
