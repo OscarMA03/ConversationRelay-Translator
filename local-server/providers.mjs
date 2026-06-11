@@ -121,3 +121,16 @@ export function getProvider(name) {
 export function listProviders() {
   return Object.values(providers);
 }
+
+export async function translateText(text, sourceLang, targetLang) {
+  if (!text || sourceLang === targetLang) return text;
+
+  const provider = getProvider(process.env.TRANSLATION_PROVIDER ?? 'aws');
+  try {
+    return await provider.translate(text, sourceLang, targetLang);
+  } catch (error) {
+    console.log(new Date().toISOString(), 'Translate failed:', error?.message ?? error);
+    if (process.env.TRANSLATION_FALLBACK_ORIGINAL !== 'false') return text;
+    throw error;
+  }
+}

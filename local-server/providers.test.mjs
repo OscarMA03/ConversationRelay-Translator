@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { getProvider, listProviders } from './providers.mjs';
+import { getProvider, listProviders, translateText } from './providers.mjs';
 
 // --- helpers used by later tasks too ---
 
@@ -178,4 +178,43 @@ test('google throws on non-ok response', async (t) => {
     () => getProvider('google').translate('Hello', 'en', 'es'),
     /Google Translate failed \(403\)/
   );
+});
+
+// --- translateText wrapper ---
+
+test('translateText returns original when languages match', async (t) => {
+  stubEnv(t, { TRANSLATION_PROVIDER: 'mock' });
+  assert.equal(await translateText('hello', 'en', 'en'), 'hello');
+});
+
+test('translateText returns empty input unchanged', async (t) => {
+  stubEnv(t, { TRANSLATION_PROVIDER: 'mock' });
+  assert.equal(await translateText('', 'en', 'es'), '');
+});
+
+test('translateText uses the provider named by TRANSLATION_PROVIDER', async (t) => {
+  stubEnv(t, { TRANSLATION_PROVIDER: 'mock' });
+  assert.equal(await translateText('hello', 'en', 'es'), '[es] hello');
+});
+
+test('translateText falls back to original text on provider error by default', async (t) => {
+  stubEnv(t, {
+    TRANSLATION_PROVIDER: 'deepl',
+    DEEPL_API_KEY: 'test-key',
+    DEEPL_API_URL: undefined,
+    TRANSLATION_FALLBACK_ORIGINAL: undefined
+  });
+  stubFetch(t, async () => new Response('down', { status: 503 }));
+  assert.equal(await translateText('hello', 'en', 'es'), 'hello');
+});
+
+test('translateText rethrows when TRANSLATION_FALLBACK_ORIGINAL=false', async (t) => {
+  stubEnv(t, {
+    TRANSLATION_PROVIDER: 'deepl',
+    DEEPL_API_KEY: 'test-key',
+    DEEPL_API_URL: undefined,
+    TRANSLATION_FALLBACK_ORIGINAL: 'false'
+  });
+  stubFetch(t, async () => new Response('down', { status: 503 }));
+  await assert.rejects(() => translateText('hello', 'en', 'es'), /DeepL failed \(503\)/);
 });
