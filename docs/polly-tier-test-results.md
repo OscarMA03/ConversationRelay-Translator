@@ -39,7 +39,7 @@ Protocol: short conversational calls, caller in Spanish, agent in English.
 | 1 | Polly Generative | 1 | 5 | 6.2 s (8.4 s) | 183 ms | **Best — sounded the most natural** |
 | 2 | Polly Neural | 1 | 6 | 5.2 s (7.6 s) | 119 ms | Fine, acceptable |
 | 3 | Polly Standard | 1 | 5 | 6.3 s (9.6 s) | 121 ms | Robotic |
-| 4 | ElevenLabs Flash v2.5 | 1 | 8 | **3.5 s (5.7 s)**, fastest turn 0.95 s | 121 ms | *(awaiting notes)* |
+| 4 | ElevenLabs Flash v2.5 | 1 | 8 | **3.5 s (5.7 s)**, fastest turn 0.95 s | 121 ms | **Sounds good, switches fast** |
 
 ## Verdict
 
@@ -52,8 +52,14 @@ Protocol: short conversational calls, caller in Spanish, agent in English.
   Translate, after the first-call connection warmup).
 - **Cost is identical** ($0.07/min flat through Twilio), so the decision comes
   down entirely to voice quality by ear.
-- **Recommendation (confirmed by ear): stay on Polly Generative.** It sounded
-  the best, Neural was merely fine, Standard was robotic — and since all tiers
-  cost the same through Twilio and latency differences were not felt in
-  conversation, Generative wins outright. The current defaults
-  (`Lupe-Generative` / `Matthew-Generative`) are already correct.
+- **Among Polly tiers:** Generative sounded the best (Neural fine, Standard
+  robotic), and tier latency differences were inside human-reply noise — so
+  within AWS, Generative was the right default.
+- **Final winner: ElevenLabs Flash v2.5.** Tested as combo 4 after the Polly
+  run: ~2–3 s faster per turn than every Polly tier (3.5 s avg vs 5.2–6.3 s,
+  fastest turn 0.95 s), sounded good by ear with fast voice switching, and
+  costs the same flat $0.07/min through Twilio. Adopted as the new default
+  (`CaJslL1xziwefCeTNzHv-flash_v2_5` caller / `UgBBYS2sOqTuMpoF3BR0-flash_v2_5`
+  agent). Known caveat to watch in daily use: ElevenLabs can stumble on raw
+  numbers/abbreviations (`elevenlabsTextNormalization` TwiML attribute is the
+  fix if it shows up).
