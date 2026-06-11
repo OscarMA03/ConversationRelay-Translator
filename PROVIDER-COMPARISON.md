@@ -32,10 +32,10 @@ the full measured loop: text sent → TTS + playback + reply + transcription.
 
 | Provider / tier | Speed (first audio) | Our measured turn-around | Quality (blind-test rank) | Our verdict by ear | Cost to us |
 |---|---|---|---|---|---|
-| **ElevenLabs Flash v2.5** ← current | ~290 ms — fastest premium | **3.5 s avg, fastest turn 0.95 s** 🏆 | Best in ConversationRelay (global top ~25) | Sounds good, switches fast — adopted | $0.07/min flat² |
-| **ElevenLabs Turbo v2.5** | ~265 ms | not tested | Slightly above Flash | — (deprecated by ElevenLabs, skip) | $0.07/min flat² |
-| **Amazon Polly Generative** | ~100–500 ms est. (unpublished) | 6.2 s avg | ~rank 33, tied w/ Chirp 3 HD | Best of the Polly tiers, most natural | $0.07/min flat² |
-| **Amazon Polly Neural** | Fast (~100–300 ms) | 5.2 s avg | Elo ~868 (legacy tier) | Fine, acceptable | $0.07/min flat² |
+| **ElevenLabs Flash v2.5** ← current | ~290 ms — fastest premium | **3.5 s avg, fastest turn 0.95 s** 🏆 | Best in ConversationRelay (global top ~25) | 🏆 Our pick — natural and snappy | $0.07/min flat² |
+| **ElevenLabs Turbo v2.5** | ~265 ms | not tested | Slightly above Flash | — (skip, deprecated) | $0.07/min flat² |
+| **Amazon Polly Generative** | ~100–500 ms est. (unpublished) | 6.2 s avg | ~rank 33, tied w/ Chirp 3 HD | Natural; best Polly | $0.07/min flat² |
+| **Amazon Polly Neural** | Fast (~100–300 ms) | 5.2 s avg | Elo ~868 (legacy tier) | Decent | $0.07/min flat² |
 | **Amazon Polly Standard** | Fast | 6.3 s avg | bottom tier | Robotic | $0.07/min flat² |
 | **Google Chirp 3 HD** | ~300–600 ms — its weak point | not tested | Tied with Polly Generative | — | $0.07/min flat² |
 
