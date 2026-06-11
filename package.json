@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "local": "node local-server/server.mjs",
-    "start": "node local-server/server.mjs"
+    "start": "node local-server/server.mjs",
+    "test": "node --test local-server/",
+    "benchmark": "node local-server/benchmark.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-translate": "^3.821.0",
