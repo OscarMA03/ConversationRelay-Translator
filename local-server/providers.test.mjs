@@ -90,3 +90,41 @@ test('deepl throws on non-ok response', async (t) => {
     /DeepL failed \(456\)/
   );
 });
+
+// --- azure ---
+
+test('azure is configured only when key and region are set', (t) => {
+  stubEnv(t, { AZURE_TRANSLATOR_KEY: 'k', AZURE_TRANSLATOR_REGION: undefined });
+  assert.equal(getProvider('azure').isConfigured(), false);
+  process.env.AZURE_TRANSLATOR_REGION = 'eastus'; // restored by the stubEnv cleanup above
+  assert.equal(getProvider('azure').isConfigured(), true);
+});
+
+test('azure posts to the translate endpoint with subscription headers', async (t) => {
+  stubEnv(t, { AZURE_TRANSLATOR_KEY: 'test-key', AZURE_TRANSLATOR_REGION: 'eastus' });
+  let captured;
+  stubFetch(t, async (url, options) => {
+    captured = { url, options };
+    return new Response(JSON.stringify([{ translations: [{ text: 'Hola' }] }]), { status: 200 });
+  });
+
+  const result = await getProvider('azure').translate('Hello', 'en', 'es');
+
+  assert.equal(result, 'Hola');
+  assert.equal(
+    captured.url,
+    'https://api.cognitive.microsofttranslator.com/translate?api-version=3.0&from=en&to=es'
+  );
+  assert.equal(captured.options.headers['Ocp-Apim-Subscription-Key'], 'test-key');
+  assert.equal(captured.options.headers['Ocp-Apim-Subscription-Region'], 'eastus');
+  assert.deepEqual(JSON.parse(captured.options.body), [{ Text: 'Hello' }]);
+});
+
+test('azure throws on non-ok response', async (t) => {
+  stubEnv(t, { AZURE_TRANSLATOR_KEY: 'test-key', AZURE_TRANSLATOR_REGION: 'eastus' });
+  stubFetch(t, async () => new Response('bad key', { status: 401 }));
+  await assert.rejects(
+    () => getProvider('azure').translate('Hello', 'en', 'es'),
+    /Azure Translator failed \(401\)/
+  );
+});

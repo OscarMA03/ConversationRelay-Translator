@@ -19,8 +19,25 @@ export const providers = {
   },
   azure: {
     name: 'azure',
-    isConfigured: () => false,
-    async translate() { throw new Error('not implemented'); }
+    isConfigured: () => Boolean(process.env.AZURE_TRANSLATOR_KEY && process.env.AZURE_TRANSLATOR_REGION),
+    async translate(text, sourceLang, targetLang) {
+      const url = 'https://api.cognitive.microsofttranslator.com/translate'
+        + `?api-version=3.0&from=${encodeURIComponent(sourceLang)}&to=${encodeURIComponent(targetLang)}`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Ocp-Apim-Subscription-Key': process.env.AZURE_TRANSLATOR_KEY,
+          'Ocp-Apim-Subscription-Region': process.env.AZURE_TRANSLATOR_REGION,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify([{ Text: text }])
+      });
+      if (!response.ok) {
+        throw new Error(`Azure Translator failed (${response.status}): ${await response.text()}`);
+      }
+      const json = await response.json();
+      return json[0]?.translations?.[0]?.text ?? text;
+    }
   },
   deepl: {
     name: 'deepl',
