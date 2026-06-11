@@ -128,3 +128,54 @@ test('azure throws on non-ok response', async (t) => {
     /Azure Translator failed \(401\)/
   );
 });
+
+// --- google ---
+
+test('google is configured only when GOOGLE_TRANSLATE_API_KEY is set', (t) => {
+  stubEnv(t, { GOOGLE_TRANSLATE_API_KEY: undefined });
+  assert.equal(getProvider('google').isConfigured(), false);
+  process.env.GOOGLE_TRANSLATE_API_KEY = 'k'; // restored by the stubEnv cleanup above
+  assert.equal(getProvider('google').isConfigured(), true);
+});
+
+test('google posts to the v2 endpoint with the API key', async (t) => {
+  stubEnv(t, { GOOGLE_TRANSLATE_API_KEY: 'test-key' });
+  let captured;
+  stubFetch(t, async (url, options) => {
+    captured = { url, options };
+    return new Response(
+      JSON.stringify({ data: { translations: [{ translatedText: 'Hola' }] } }),
+      { status: 200 }
+    );
+  });
+
+  const result = await getProvider('google').translate('Hello', 'en', 'es');
+
+  assert.equal(result, 'Hola');
+  assert.equal(captured.url, 'https://translation.googleapis.com/language/translate/v2?key=test-key');
+  assert.deepEqual(JSON.parse(captured.options.body), {
+    q: 'Hello',
+    source: 'en',
+    target: 'es',
+    format: 'text'
+  });
+});
+
+test('google decodes HTML entities in the response', async (t) => {
+  stubEnv(t, { GOOGLE_TRANSLATE_API_KEY: 'test-key' });
+  stubFetch(t, async () => new Response(
+    JSON.stringify({ data: { translations: [{ translatedText: 'I can&#39;t &amp; won&#39;t' }] } }),
+    { status: 200 }
+  ));
+  const result = await getProvider('google').translate('hola', 'es', 'en');
+  assert.equal(result, "I can't & won't");
+});
+
+test('google throws on non-ok response', async (t) => {
+  stubEnv(t, { GOOGLE_TRANSLATE_API_KEY: 'test-key' });
+  stubFetch(t, async () => new Response('forbidden', { status: 403 }));
+  await assert.rejects(
+    () => getProvider('google').translate('Hello', 'en', 'es'),
+    /Google Translate failed \(403\)/
+  );
+});
