@@ -43,10 +43,18 @@ export const COMBOS = [
     transcriptionProvider: 'Deepgram',
     speechModel: 'nova-3-general',
     ttsProvider: 'ElevenLabs',
-    // Twilio's default ConversationRelay ElevenLabs voices (es-US / en-US),
-    // pinned to the flash_v2_5 model via the -model suffix.
-    callerVoice: 'CaJslL1xziwefCeTNzHv-flash_v2_5',
-    agentVoice: 'UgBBYS2sOqTuMpoF3BR0-flash_v2_5'
+    // Same voices as combo 5 so the only variable is the model suffix.
+    callerVoice: '94zOad0g7T7K4oa7zhDq-flash_v2_5',
+    agentVoice: '6OzrBCQf8cjERkYgzSg8-flash_v2_5'
+  },
+  {
+    id: 5,
+    label: 'ElevenLabs Turbo v2.5',
+    transcriptionProvider: 'Deepgram',
+    speechModel: 'nova-3-general',
+    ttsProvider: 'ElevenLabs',
+    callerVoice: '94zOad0g7T7K4oa7zhDq-turbo_v2_5',
+    agentVoice: '6OzrBCQf8cjERkYgzSg8-turbo_v2_5'
   }
 ];
 

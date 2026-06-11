@@ -17,19 +17,22 @@ function stubEnv(t, vars) {
   });
 }
 
-test('matrix covers the Polly tiers plus ElevenLabs Flash with Deepgram STT pinned', () => {
-  assert.equal(COMBOS.length, 4);
+test('matrix covers the Polly tiers plus ElevenLabs Flash and Turbo with Deepgram STT pinned', () => {
+  assert.equal(COMBOS.length, 5);
   for (const combo of COMBOS) {
     assert.equal(combo.transcriptionProvider, 'Deepgram');
     assert.equal(combo.speechModel, 'nova-3-general');
   }
-  assert.deepEqual(COMBOS.map((c) => c.ttsProvider), ['Amazon', 'Amazon', 'Amazon', 'ElevenLabs']);
-  // Caller speaks/hears Spanish, agent speaks/hears English
+  assert.deepEqual(COMBOS.map((c) => c.ttsProvider), ['Amazon', 'Amazon', 'Amazon', 'ElevenLabs', 'ElevenLabs']);
+  // Caller speaks/hears Spanish, agent speaks/hears English.
+  // Combos 4 and 5 use identical voices so the only variable is the model.
   assert.deepEqual(COMBOS.map((c) => c.callerVoice), [
-    'Lupe-Generative', 'Lupe-Neural', 'Lupe', 'CaJslL1xziwefCeTNzHv-flash_v2_5'
+    'Lupe-Generative', 'Lupe-Neural', 'Lupe',
+    '94zOad0g7T7K4oa7zhDq-flash_v2_5', '94zOad0g7T7K4oa7zhDq-turbo_v2_5'
   ]);
   assert.deepEqual(COMBOS.map((c) => c.agentVoice), [
-    'Matthew-Generative', 'Matthew-Neural', 'Matthew', 'UgBBYS2sOqTuMpoF3BR0-flash_v2_5'
+    'Matthew-Generative', 'Matthew-Neural', 'Matthew',
+    '6OzrBCQf8cjERkYgzSg8-flash_v2_5', '6OzrBCQf8cjERkYgzSg8-turbo_v2_5'
   ]);
 });
 
@@ -43,8 +46,8 @@ test('nextCombo rotates through the matrix and wraps', (t) => {
   resetRotation();
   t.after(resetRotation);
   assert.deepEqual(
-    [nextCombo().id, nextCombo().id, nextCombo().id, nextCombo().id, nextCombo().id],
-    [1, 2, 3, 4, 1]
+    [nextCombo().id, nextCombo().id, nextCombo().id, nextCombo().id, nextCombo().id, nextCombo().id],
+    [1, 2, 3, 4, 5, 1]
   );
 });
 
