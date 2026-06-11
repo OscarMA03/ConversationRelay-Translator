@@ -211,6 +211,6 @@ $RECYCLE.BIN/
 # Windows shortcuts
 *.lnk
 lambda-invoke-response.json
-local-server/test-results.jsonl
+local-server/test-results*.jsonl
 
 # End of https://www.toptal.com/developers/gitignore/api/osx,node,linux,windows,sam
