@@ -40,7 +40,7 @@ In `package.json`, change the `scripts` block to:
   "scripts": {
     "local": "node local-server/server.mjs",
     "start": "node local-server/server.mjs",
-    "test": "node --test local-server/",
+    "test": "node --test",
     "benchmark": "node local-server/benchmark.mjs"
   },
 ```
