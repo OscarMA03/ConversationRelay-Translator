@@ -38,8 +38,22 @@ Protocol: short conversational calls, caller in Spanish, agent in English.
 |---|---|---|---|---|---|---|
 | 1 | Polly Generative | 1 | 5 | 6.2 s (8.4 s) | 183 ms | *(awaiting notes)* |
 | 2 | Polly Neural | 1 | 6 | 5.2 s (7.6 s) | 119 ms | *(awaiting notes)* |
-| 3 | Polly Standard | – | – | – | – | – |
+| 3 | Polly Standard | 1 | 5 | 6.3 s (9.6 s) | 121 ms | *(awaiting notes)* |
 
-## Verdict (pending run 2)
+## Verdict
 
-*(to be filled in after the clean run)*
+- **Measured latency: no decisive winner.** Turn-around averages landed within
+  ~1 s of each other (5.2–6.3 s) across tiers, and with only 5–6 turns per combo
+  that spread is dominated by human reply speed, not TTS. The TTS tier
+  contributes at most a few hundred ms either way. The rough run-1 data hinted
+  Standard is fastest and Generative slowest, which matches published benchmarks.
+- **Translate hop is a non-factor:** 119–183 ms regardless of tier (AWS
+  Translate, after the first-call connection warmup).
+- **Cost is identical** ($0.07/min flat through Twilio), so the decision comes
+  down entirely to voice quality by ear.
+- **Recommendation:** stay on **Polly Generative** (the current default) — same
+  price, highest published quality tier, and its latency penalty was not
+  noticeable at conversation scale in this test. Revisit only if the ear notes
+  say Neural sounded just as good.
+
+Quality-by-ear notes per tier still to be added above.
