@@ -6,6 +6,11 @@ import { URL } from 'node:url';
 import { TranslateClient, TranslateTextCommand } from '@aws-sdk/client-translate';
 import { WebSocketServer } from 'ws';
 
+import fs from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { getCombo, nextCombo } from './combos.mjs';
+import { parseEvents, summarize } from './metrics.mjs';
+
 const port = Number(process.env.PORT ?? 3000);
 const translateClient = new TranslateClient({ region: process.env.AWS_REGION ?? 'us-east-1' });
 
@@ -13,6 +18,30 @@ const translateClient = new TranslateClient({ region: process.env.AWS_REGION ?? 
 const connections = new Map();
 /** @type {Array<Record<string, any>>} */
 const transcript = [];
+
+const RESULTS_FILE = fileURLToPath(new URL('./test-results.jsonl', import.meta.url));
+
+function isTestMode() {
+  return process.env.PROVIDER_TEST_MODE === 'true';
+}
+
+function recordEvent(event) {
+  if (!isTestMode() || event.comboId === undefined || event.comboId === null) return;
+  try {
+    fs.appendFileSync(RESULTS_FILE, JSON.stringify(event) + '\n');
+  } catch (error) {
+    log('Failed to record test event:', error?.message ?? error);
+  }
+}
+
+function readResults() {
+  try {
+    return parseEvents(fs.readFileSync(RESULTS_FILE, 'utf8'));
+  } catch (error) {
+    if (error.code === 'ENOENT') return [];
+    throw error;
+  }
+}
 
 function log(...args) {
   console.log(new Date().toISOString(), ...args);
@@ -42,15 +71,15 @@ function getWsUrl(req) {
   return publicBaseUrl.replace(/^https:/, 'wss:').replace(/^http:/, 'ws:') + '/ws';
 }
 
-function callerContext(params = {}) {
+function callerContext(params = {}, combo = null) {
   return {
     name: process.env.CALLER_NAME ?? 'Caller',
     sourceLanguageCode: process.env.CALLER_TRANSLATE_CODE ?? 'en',
     sourceLanguage: process.env.CALLER_LANGUAGE ?? 'en-US',
     sourceLanguageFriendly: process.env.CALLER_LANGUAGE_FRIENDLY ?? 'English - United States',
-    sourceTranscriptionProvider: process.env.CALLER_TRANSCRIPTION_PROVIDER ?? 'Deepgram',
-    sourceTtsProvider: process.env.CALLER_TTS_PROVIDER ?? 'Amazon',
-    sourceVoice: process.env.CALLER_VOICE ?? 'Matthew-Generative',
+    sourceTranscriptionProvider: combo?.transcriptionProvider ?? process.env.CALLER_TRANSCRIPTION_PROVIDER ?? 'Deepgram',
+    sourceTtsProvider: combo?.ttsProvider ?? process.env.CALLER_TTS_PROVIDER ?? 'Amazon',
+    sourceVoice: combo?.callerVoice ?? process.env.CALLER_VOICE ?? 'Matthew-Generative',
     To: params.To ?? process.env.TWILIO_DEFAULT_FROM ?? '',
     From: params.From ?? '',
     SortKey: params.From ?? '',
@@ -64,19 +93,20 @@ function callerContext(params = {}) {
     targetTranscriptionProvider: 'notset',
     targetTtsProvider: 'notset',
     targetVoice: 'notset',
-    targetCallSid: 'notset'
+    targetCallSid: 'notset',
+    ...(combo ? { testComboId: combo.id } : {})
   };
 }
 
-function agentContext() {
+function agentContext(combo = null) {
   return {
     name: process.env.AGENT_NAME ?? 'Agent',
     sourceLanguageCode: process.env.AGENT_TRANSLATE_CODE ?? 'es',
     sourceLanguage: process.env.AGENT_LANGUAGE ?? 'es-MX',
     sourceLanguageFriendly: process.env.AGENT_LANGUAGE_FRIENDLY ?? 'Spanish - Mexico',
-    sourceTranscriptionProvider: process.env.AGENT_TRANSCRIPTION_PROVIDER ?? 'Deepgram',
-    sourceTtsProvider: process.env.AGENT_TTS_PROVIDER ?? 'Amazon',
-    sourceVoice: process.env.AGENT_VOICE ?? 'Lupe-Generative'
+    sourceTranscriptionProvider: combo?.transcriptionProvider ?? process.env.AGENT_TRANSCRIPTION_PROVIDER ?? 'Deepgram',
+    sourceTtsProvider: combo?.ttsProvider ?? process.env.AGENT_TTS_PROVIDER ?? 'Amazon',
+    sourceVoice: combo?.agentVoice ?? process.env.AGENT_VOICE ?? 'Lupe-Generative'
   };
 }
 
@@ -104,15 +134,20 @@ ${buildParameterXml(params)}
 }
 
 function inboundTwiml(req, twilioParams) {
-  const context = callerContext(twilioParams);
+  const combo = isTestMode() ? nextCombo() : null;
+  const context = callerContext(twilioParams, combo);
+  if (combo) log('test mode combo', { id: combo.id, label: combo.label });
   return buildConversationRelayTwiml({
     wsUrl: getWsUrl(req),
     relay: {
-      welcomeGreeting: 'Please wait while we connect you to a translator.',
+      welcomeGreeting: combo
+        ? `Test combo ${combo.id}: ${combo.label}. Please wait while we connect you to a translator.`
+        : 'Please wait while we connect you to a translator.',
       dtmfDetection: 'false',
       interruptByDtmf: 'false',
       language: context.sourceLanguage,
       transcriptionProvider: context.sourceTranscriptionProvider,
+      ...(combo ? { speechModel: combo.speechModel } : {}),
       ttsProvider: context.sourceTtsProvider,
       voice: context.sourceVoice
     },
@@ -121,9 +156,11 @@ function inboundTwiml(req, twilioParams) {
 }
 
 function outboundAgentTwiml(callerParty) {
-  const context = agentContext();
+  const combo = isTestMode() && callerParty.testComboId ? getCombo(callerParty.testComboId) : null;
+  const context = agentContext(combo);
   const params = {
     ...context,
+    ...(combo ? { testComboId: combo.id } : {}),
     To: process.env.AGENT_PHONE_NUMBER,
     From: callerParty.To,
     SortKey: callerParty.To,
@@ -151,6 +188,7 @@ function outboundAgentTwiml(callerParty) {
       interruptByDtmf: 'false',
       language: context.sourceLanguage,
       transcriptionProvider: context.sourceTranscriptionProvider,
+      ...(combo ? { speechModel: combo.speechModel } : {}),
       ttsProvider: context.sourceTtsProvider,
       voice: context.sourceVoice
     },
@@ -271,9 +309,18 @@ async function handleSetup(ws, connectionId, body) {
     parentConnectionId,
     translationActive: custom.translationActive === true || custom.translationActive === 'true'
   };
+  party.testComboId = custom.testComboId ? Number(custom.testComboId) : undefined;
 
   connections.set(connectionId, party);
   log('setup', { connectionId, whichParty: party.whichParty, callSid: party.callSid });
+  recordEvent({
+    ts: Date.now(),
+    sessionId: party.parentConnectionId,
+    comboId: party.testComboId,
+    leg: party.whichParty,
+    direction: 'in',
+    type: 'setup'
+  });
 
   if (party.whichParty === 'caller') {
     await maybeDialAgent(party);
@@ -311,6 +358,15 @@ async function handlePrompt(connectionId, body) {
   const text = body.voicePrompt ?? body.prompt ?? body.text ?? '';
   if (!text) return;
 
+  recordEvent({
+    ts: Date.now(),
+    sessionId: party.parentConnectionId,
+    comboId: party.testComboId,
+    leg: party.whichParty,
+    direction: 'in',
+    type: 'prompt'
+  });
+
   if (!party.translationActive || !party.targetConnectionId || party.targetConnectionId === 'notset') {
     sendWs(party.ws, {
       type: 'text',
@@ -346,6 +402,14 @@ async function handlePrompt(connectionId, body) {
   });
 
   sendWs(target.ws, { type: 'text', token: translated, last: true });
+  recordEvent({
+    ts: Date.now(),
+    sessionId: party.parentConnectionId,
+    comboId: party.testComboId,
+    leg: target.whichParty,
+    direction: 'out',
+    type: 'text'
+  });
 }
 
 function handleDisconnect(connectionId) {
@@ -377,6 +441,21 @@ const server = http.createServer(async (req, res) => {
         connections: [...connections.values()].map(({ ws, ...party }) => party),
         transcript
       }, null, 2), 'application/json');
+      return;
+    }
+
+    if (url.pathname === '/results') {
+      const summary = summarize(readResults());
+      const labeled = Object.fromEntries(Object.entries(summary).map(([id, value]) => {
+        let label;
+        try {
+          label = getCombo(id).label;
+        } catch {
+          label = `combo ${id}`;
+        }
+        return [id, { label, ...value }];
+      }));
+      send(res, 200, JSON.stringify(labeled, null, 2), 'application/json');
       return;
     }
 
@@ -420,6 +499,15 @@ wss.on('connection', (ws) => {
   ws.on('close', () => handleDisconnect(connectionId));
   ws.on('error', (error) => log('WebSocket error:', error));
 });
+
+if (process.env.TEST_COMBO) {
+  try {
+    getCombo(process.env.TEST_COMBO);
+  } catch (error) {
+    console.error(String(error?.message ?? error));
+    process.exit(1);
+  }
+}
 
 server.listen(port, () => {
   log(`Local ConversationRelay server listening on http://localhost:${port}`);
