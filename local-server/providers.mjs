@@ -1,9 +1,7 @@
 import { TranslateClient, TranslateTextCommand } from '@aws-sdk/client-translate';
 
-let awsClient;
 function getAwsClient() {
-  awsClient ??= new TranslateClient({ region: process.env.AWS_REGION ?? 'us-east-1' });
-  return awsClient;
+  return new TranslateClient({ region: process.env.AWS_REGION ?? 'us-east-1' });
 }
 
 export const providers = {
@@ -26,8 +24,27 @@ export const providers = {
   },
   deepl: {
     name: 'deepl',
-    isConfigured: () => false,
-    async translate() { throw new Error('not implemented'); }
+    isConfigured: () => Boolean(process.env.DEEPL_API_KEY),
+    async translate(text, sourceLang, targetLang) {
+      const baseUrl = (process.env.DEEPL_API_URL || 'https://api-free.deepl.com').replace(/\/$/, '');
+      const response = await fetch(`${baseUrl}/v2/translate`, {
+        method: 'POST',
+        headers: {
+          Authorization: `DeepL-Auth-Key ${process.env.DEEPL_API_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          text: [text],
+          source_lang: sourceLang.toUpperCase(),
+          target_lang: targetLang.toUpperCase()
+        })
+      });
+      if (!response.ok) {
+        throw new Error(`DeepL failed (${response.status}): ${await response.text()}`);
+      }
+      const json = await response.json();
+      return json.translations?.[0]?.text ?? text;
+    }
   },
   google: {
     name: 'google',

@@ -44,3 +44,49 @@ test('listProviders returns all five providers', () => {
   const names = listProviders().map((p) => p.name).sort();
   assert.deepEqual(names, ['aws', 'azure', 'deepl', 'google', 'mock']);
 });
+
+// --- deepl ---
+
+test('deepl is configured only when DEEPL_API_KEY is set', (t) => {
+  stubEnv(t, { DEEPL_API_KEY: undefined });
+  assert.equal(getProvider('deepl').isConfigured(), false);
+  process.env.DEEPL_API_KEY = 'k'; // restored by the stubEnv cleanup above
+  assert.equal(getProvider('deepl').isConfigured(), true);
+});
+
+test('deepl posts uppercased language codes with auth header to the free endpoint by default', async (t) => {
+  stubEnv(t, { DEEPL_API_KEY: 'test-key', DEEPL_API_URL: undefined });
+  let captured;
+  stubFetch(t, async (url, options) => {
+    captured = { url, options };
+    return new Response(JSON.stringify({ translations: [{ text: 'Hola' }] }), { status: 200 });
+  });
+
+  const result = await getProvider('deepl').translate('Hello', 'en', 'es');
+
+  assert.equal(result, 'Hola');
+  assert.equal(captured.url, 'https://api-free.deepl.com/v2/translate');
+  assert.equal(captured.options.headers.Authorization, 'DeepL-Auth-Key test-key');
+  const body = JSON.parse(captured.options.body);
+  assert.deepEqual(body, { text: ['Hello'], source_lang: 'EN', target_lang: 'ES' });
+});
+
+test('deepl honors DEEPL_API_URL override', async (t) => {
+  stubEnv(t, { DEEPL_API_KEY: 'test-key', DEEPL_API_URL: 'https://api.deepl.com' });
+  let captured;
+  stubFetch(t, async (url) => {
+    captured = url;
+    return new Response(JSON.stringify({ translations: [{ text: 'Hola' }] }), { status: 200 });
+  });
+  await getProvider('deepl').translate('Hello', 'en', 'es');
+  assert.equal(captured, 'https://api.deepl.com/v2/translate');
+});
+
+test('deepl throws on non-ok response', async (t) => {
+  stubEnv(t, { DEEPL_API_KEY: 'test-key', DEEPL_API_URL: undefined });
+  stubFetch(t, async () => new Response('Quota exceeded', { status: 456 }));
+  await assert.rejects(
+    () => getProvider('deepl').translate('Hello', 'en', 'es'),
+    /DeepL failed \(456\)/
+  );
+});
