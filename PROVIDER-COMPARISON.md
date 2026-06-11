@@ -12,13 +12,20 @@ adopted after live testing — see the table below).
 of provider (plus the normal call leg). The price columns below are the providers'
 direct list prices, for reference only — switching providers costs you nothing extra.
 
+**Reading the speed column:** figures are tagged by evidence grade —
+*(independently measured)* = real instrumented benchmark, *(vendor)* = the
+provider's own claim, *(estimate)* = no published data. Our own "measured
+turn-around" column is real data from this project's calls, but it's a
+composite (TTS + playback + human reply + STT): trust it for big gaps, not
+small ones.
+
 ## Speech-to-text (`transcriptionProvider`)
 
 | Provider / model | Speed (streaming) | Quality (word error rate) | Cost to us | Notes |
 |---|---|---|---|---|
-| **Deepgram Nova-3** (current) | ~150–300 ms — fastest in every benchmark | ~6.8% WER, best in class | $0.07/min flat¹ | Default; EN/ES/FR/DE/PT/IT + live code-switching |
-| **Deepgram Flux** | Another 200–600 ms faster turn detection | Nova accuracy, ~30% fewer false interruptions | $0.07/min flat¹ | New May 2026; `speechModel="flux"` |
-| **Google telephony** | ~830 ms in independent tests | ~13–14% WER | $0.07/min flat¹ | Can do better in noisy audio per Twilio |
+| **Deepgram Nova-3** (current) | ~150–300 ms (vendor); ~990 ms in one independent production test — still fastest STT tested | ~6.8% WER, best in class | $0.07/min flat¹ | Default; EN/ES/FR/DE/PT/IT + live code-switching |
+| **Deepgram Flux** | 200–600 ms faster turn detection (vendor claim, unverified) | Nova accuracy, ~30% fewer false interruptions | $0.07/min flat¹ | New May 2026; `speechModel="flux"` |
+| **Google telephony** | ~830 ms (independently measured) | ~13–14% WER | $0.07/min flat¹ | Can do better in noisy audio per Twilio |
 
 ¹ Twilio's single ConversationRelay rate covers STT + TTS together — provider
 choice never changes the bill. (Direct list prices, only relevant outside
@@ -32,12 +39,12 @@ the full measured loop: text sent → TTS + playback + reply + transcription.
 
 | Provider / tier | Speed (first audio) | Our measured turn-around | Quality (blind-test rank) | Our verdict by ear | Cost to us |
 |---|---|---|---|---|---|
-| **ElevenLabs Flash v2.5** ← current | ~290 ms — fastest premium | **3.5 s avg, fastest turn 0.95 s** 🏆 | Best in ConversationRelay (global top ~25) | 🏆 Our pick — natural and snappy | $0.07/min flat² |
-| **ElevenLabs Turbo v2.5** | ~265 ms | not tested | Slightly above Flash | — (skip, deprecated) | $0.07/min flat² |
-| **Amazon Polly Generative** | ~100–500 ms est. (unpublished) | 6.2 s avg | ~rank 33, tied w/ Chirp 3 HD | Natural; best Polly | $0.07/min flat² |
-| **Amazon Polly Neural** | Fast (~100–300 ms) | 5.2 s avg | Elo ~868 (legacy tier) | Decent | $0.07/min flat² |
+| **ElevenLabs Flash v2.5** ← current | ~288 ms (independently measured) | **3.5 s avg, fastest turn 0.95 s** 🏆 | Best in ConversationRelay (global top ~25) | 🏆 Our pick — natural and snappy | $0.07/min flat² |
+| **ElevenLabs Turbo v2.5** | ~264 ms (independently measured; tie with Flash) | not tested | Slightly above Flash | — (skip, deprecated) | $0.07/min flat² |
+| **Amazon Polly Generative** | ~100–500 ms (estimate only; AWS publishes nothing) | 6.2 s avg | ~rank 33, tied w/ Chirp 3 HD | Natural; best Polly | $0.07/min flat² |
+| **Amazon Polly Neural** | ~100–300 ms (third-party benchmarks) | 5.2 s avg | Elo ~868 (legacy tier) | Decent | $0.07/min flat² |
 | **Amazon Polly Standard** | Fast | 6.3 s avg | bottom tier | Robotic | $0.07/min flat² |
-| **Google Chirp 3 HD** | ~300–600 ms — its weak point | not tested | Tied with Polly Generative | — | $0.07/min flat² |
+| **Google Chirp 3 HD** | ~300–600 ms (mixed reports) — its weak point | not tested | Tied with Polly Generative | — | $0.07/min flat² |
 
 ² Same flat Twilio rate for every voice — quality upgrades are free. (Direct
 list prices, only relevant outside Twilio: ElevenLabs ~$0.045/min, Polly
