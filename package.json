@@ -7,7 +7,8 @@
     "local": "node local-server/server.mjs",
     "start": "node local-server/server.mjs",
     "test": "node --test",
-    "benchmark": "node local-server/benchmark.mjs"
+    "benchmark": "node local-server/benchmark.mjs",
+    "report": "node local-server/report.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-translate": "^3.821.0",
