@@ -11,6 +11,16 @@ function getAwsClient() {
   return awsClient;
 }
 
+function decodeHtmlEntities(text) {
+  return text
+    .replaceAll('&#39;', "'")
+    .replaceAll('&apos;', "'")
+    .replaceAll('&quot;', '"')
+    .replaceAll('&lt;', '<')
+    .replaceAll('&gt;', '>')
+    .replaceAll('&amp;', '&');
+}
+
 export const providers = {
   aws: {
     name: 'aws',
@@ -72,8 +82,22 @@ export const providers = {
   },
   google: {
     name: 'google',
-    isConfigured: () => false,
-    async translate() { throw new Error('not implemented'); }
+    isConfigured: () => Boolean(process.env.GOOGLE_TRANSLATE_API_KEY),
+    async translate(text, sourceLang, targetLang) {
+      const url = 'https://translation.googleapis.com/language/translate/v2'
+        + `?key=${encodeURIComponent(process.env.GOOGLE_TRANSLATE_API_KEY)}`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ q: text, source: sourceLang, target: targetLang, format: 'text' })
+      });
+      if (!response.ok) {
+        throw new Error(`Google Translate failed (${response.status}): ${await response.text()}`);
+      }
+      const json = await response.json();
+      const translated = json.data?.translations?.[0]?.translatedText;
+      return translated ? decodeHtmlEntities(translated) : text;
+    }
   },
   mock: {
     name: 'mock',
