@@ -3,16 +3,15 @@ import 'dotenv/config';
 import http from 'node:http';
 import { randomUUID } from 'node:crypto';
 import { URL } from 'node:url';
-import { TranslateClient, TranslateTextCommand } from '@aws-sdk/client-translate';
 import { WebSocketServer } from 'ws';
 
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { getCombo, nextCombo } from './combos.mjs';
 import { parseEvents, summarize } from './metrics.mjs';
+import { translateText } from './providers.mjs';
 
 const port = Number(process.env.PORT ?? 3000);
-const translateClient = new TranslateClient({ region: process.env.AWS_REGION ?? 'us-east-1' });
 
 /** @type {Map<string, Record<string, any>>} */
 const connections = new Map();
@@ -227,27 +226,6 @@ function send(res, statusCode, body, contentType = 'text/plain') {
 function sendWs(ws, payload) {
   if (ws.readyState === ws.OPEN) {
     ws.send(JSON.stringify(payload));
-  }
-}
-
-async function translateText(text, sourceLanguageCode, targetLanguageCode) {
-  if (!text || sourceLanguageCode === targetLanguageCode) return text;
-
-  if ((process.env.TRANSLATION_PROVIDER ?? 'aws') === 'mock') {
-    return `[${targetLanguageCode}] ${text}`;
-  }
-
-  try {
-    const response = await translateClient.send(new TranslateTextCommand({
-      Text: text,
-      SourceLanguageCode: sourceLanguageCode,
-      TargetLanguageCode: targetLanguageCode
-    }));
-    return response.TranslatedText ?? text;
-  } catch (error) {
-    log('Translate failed:', error?.message ?? error);
-    if (process.env.TRANSLATION_FALLBACK_ORIGINAL !== 'false') return text;
-    throw error;
   }
 }
 
