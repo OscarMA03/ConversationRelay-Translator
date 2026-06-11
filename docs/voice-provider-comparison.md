@@ -48,14 +48,44 @@ Polly Generative voices, at the same Twilio price. Caveats: it can stumble on ra
 numbers/abbreviations (use the `elevenlabsTextNormalization` attribute) and only
 supports `<phoneme>` SSML in English.
 
-## Trying a different combo
+## Testing the Polly tiers (test mode)
 
-Set in `.env` for the local server (and the `AGENT_*` equivalents for the callee):
+The local server has a built-in test mode that rotates through every Amazon
+Polly tier available in ConversationRelay and records timing:
+
+| Combo | TTS tier | Caller / agent voice |
+|---|---|---|
+| 1 | Polly Generative (current default) | Matthew-Generative / Lupe-Generative |
+| 2 | Polly Neural | Matthew-Neural / Lupe-Neural |
+| 3 | Polly Standard | Matthew / Lupe |
+
+STT stays on Deepgram nova-3 for every combo — ConversationRelay has no AWS
+speech-to-text option.
+
+### Protocol
+
+1. Set `PROVIDER_TEST_MODE=true` in `.env`, start the server and ngrok, and
+   have both testers ready (`AUTO_DIAL_AGENT=true` dials the second phone).
+2. Call in 3 times. The welcome greeting announces the active combo
+   ("Test combo 2: Polly Neural"). Set `TEST_COMBO=2` to pin one instead.
+3. Read the same short script on every call, and reply immediately when you
+   hear each translated phrase — that keeps the timing comparable.
+4. Note per call: first-word delay, naturalness, pronunciation of numbers and
+   names.
+5. Run `npm run report` (or `GET /results`) for the per-combo table:
+   sessions, turns, translate latency, turn-around time, and prompts-per-leg
+   (lower = cleaner endpointing).
+
+Turn-around time includes TTS synthesis + playback, the listener's reply, and
+transcription — only *differences between combos* are meaningful, and only
+when calls follow the same script. Voice quality is judged by ear.
+
+### Switching providers outside test mode
 
 ```bash
 CALLER_TRANSCRIPTION_PROVIDER=Deepgram   # or Google
-CALLER_TTS_PROVIDER=ElevenLabs           # or Amazon, Google
-CALLER_VOICE=UgBBYS2sOqTuMpoF3BR0        # provider-specific voice ID
+CALLER_TTS_PROVIDER=Amazon               # or ElevenLabs, Google
+CALLER_VOICE=Matthew-Generative          # provider-specific voice ID
 ```
 
 ## Sources
