@@ -1,7 +1,14 @@
 import { TranslateClient, TranslateTextCommand } from '@aws-sdk/client-translate';
 
+let awsClient;
+let awsClientRegion;
 function getAwsClient() {
-  return new TranslateClient({ region: process.env.AWS_REGION ?? 'us-east-1' });
+  const region = process.env.AWS_REGION ?? 'us-east-1';
+  if (!awsClient || awsClientRegion !== region) {
+    awsClient = new TranslateClient({ region });
+    awsClientRegion = region;
+  }
+  return awsClient;
 }
 
 export const providers = {
