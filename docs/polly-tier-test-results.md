@@ -63,3 +63,39 @@ Protocol: short conversational calls, caller in Spanish, agent in English.
   agent). Known caveat to watch in daily use: ElevenLabs can stumble on raw
   numbers/abbreviations (`elevenlabsTextNormalization` TwiML attribute is the
   fix if it shows up).
+
+## Pipeline stage metrics
+
+One conversation turn flows through three stages. What each one costs, from
+this project's recorded calls (run 2) plus published benchmarks where the
+websocket can't see inside Twilio:
+
+| Stage | Provider | Measured in our calls | Published benchmark |
+|---|---|---|---|
+| 1. Speech → text | Deepgram nova-3 | Not directly observable (Twilio-side). Indirect signal: prompts/leg 2.5–4.0 (utterance splitting) | ~150–300 ms to transcript + ~1 s end-of-utterance detection |
+| 2. Text → text (translate) | AWS Translate | **80–183 ms avg** (min 80 ms, p95 157–371 ms) — directly measured, the only stage our server times exactly | ~matches |
+| 3. Text → speech | ElevenLabs Flash v2.5 | Inferred from turn-around: **~2–3 s faster per turn than every Polly tier** (3.5 s avg vs 5.2–6.3 s; fastest turn 952 ms) | ~75 ms model latency, ~290 ms real-world time-to-first-audio |
+| (3 alt) | Polly Generative/Neural/Standard | Turn-around 5.2–6.3 s avg | ~100–600 ms first audio (unpublished officially) |
+
+Reading it: translation is a rounding error (~0.12 s); the perceived delay in a
+turn is dominated by STT end-of-utterance detection (~1 s) + TTS synthesis and
+playback + the human reply. The TTS provider was the lever that moved the
+total — switching Polly → ElevenLabs cut measured turn-around roughly in half.
+
+## ElevenLabs sound quality metric
+
+Voice quality has no instrument in this pipeline — the industry metric is blind
+human preference (Elo, like chess ratings), plus our own ears:
+
+- **Artificial Analysis TTS Arena (blind listener preference, mid-2026):**
+  ElevenLabs Flash v2.5 ranks in the global top ~25 of ~80 models and is the
+  **highest-ranked option available in ConversationRelay** — above Polly
+  Generative (rank ~33), far above Polly Neural (Elo ~868, legacy tier).
+- **Independent blind tests:** ElevenLabs picked #1 for naturalness (~4.8/5)
+  in 2025–26 listening tests.
+- **Our ears (this project):** "sounds good, switches fast" — preferred over
+  Polly Generative (best Polly tier), which beat Neural ("fine") and Standard
+  ("robotic").
+- Per-call rubric for future voice auditions (score 1–5 each): naturalness /
+  first-word delay feel / pronunciation of numbers & names / consistency
+  between Spanish and English legs.
