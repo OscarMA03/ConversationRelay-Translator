@@ -36,9 +36,9 @@ Protocol: short conversational calls, caller in Spanish, agent in English.
 
 | Combo | Tier | Sessions | Turns | Turn-around avg (p95) | Translate avg | Quality (by ear) |
 |---|---|---|---|---|---|---|
-| 1 | Polly Generative | 1 | 5 | 6.2 s (8.4 s) | 183 ms | *(awaiting notes)* |
-| 2 | Polly Neural | 1 | 6 | 5.2 s (7.6 s) | 119 ms | *(awaiting notes)* |
-| 3 | Polly Standard | 1 | 5 | 6.3 s (9.6 s) | 121 ms | *(awaiting notes)* |
+| 1 | Polly Generative | 1 | 5 | 6.2 s (8.4 s) | 183 ms | **Best — sounded the most natural** |
+| 2 | Polly Neural | 1 | 6 | 5.2 s (7.6 s) | 119 ms | Fine, acceptable |
+| 3 | Polly Standard | 1 | 5 | 6.3 s (9.6 s) | 121 ms | Robotic |
 
 ## Verdict
 
@@ -51,9 +51,8 @@ Protocol: short conversational calls, caller in Spanish, agent in English.
   Translate, after the first-call connection warmup).
 - **Cost is identical** ($0.07/min flat through Twilio), so the decision comes
   down entirely to voice quality by ear.
-- **Recommendation:** stay on **Polly Generative** (the current default) — same
-  price, highest published quality tier, and its latency penalty was not
-  noticeable at conversation scale in this test. Revisit only if the ear notes
-  say Neural sounded just as good.
-
-Quality-by-ear notes per tier still to be added above.
+- **Recommendation (confirmed by ear): stay on Polly Generative.** It sounded
+  the best, Neural was merely fine, Standard was robotic — and since all tiers
+  cost the same through Twilio and latency differences were not felt in
+  conversation, Generative wins outright. The current defaults
+  (`Lupe-Generative` / `Matthew-Generative`) are already correct.
