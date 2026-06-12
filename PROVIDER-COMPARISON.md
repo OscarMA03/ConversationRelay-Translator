@@ -37,7 +37,7 @@ Includes results from our own live test calls (2026-06-11, es↔en two-party
 translation; full data in `docs/polly-tier-test-results.md`). "Turn-around" is
 the full measured loop: text sent → TTS + playback + reply + transcription.
 
-| Provider / tier | Speed (first audio) | Our live-call exchange time³ | Our verdict by ear | Cost to us² |
+| Provider / tier | Delay before the voice starts speaking (lab-measured)⁴ | Our live-call exchange time³ | Our verdict by ear | Cost to us² |
 |---|---|---|---|---|
 | **ElevenLabs Flash v2.5** ← current | ~288 ms (independently measured) | ~10.7 s | 🏆 Our pick — feels like an actual human talking | $0.07/min flat |
 | **ElevenLabs Turbo v2.5** | ~264 ms (independently measured; tie with Flash) | ~12.7 s | Human-like too, but deprecated — skip | $0.07/min flat |
@@ -60,6 +60,12 @@ exchanges per tier the differences are within human-reply noise (across all
 indistinguishable). For tier-vs-tier speed, trust the independently measured
 figures in the speed column. Translation's share of each exchange: ~0.15 s.
 Full data: `docs/polly-tier-test-results.md`.
+
+⁴ The dead-air gap between handing text to the voice engine and the first
+sound coming out, measured in lab benchmarks (no humans/phone in the loop) —
+the only clean way to compare providers' raw speed. In this app it's a minor
+share of each pause: ~1 s of speech-recognition wait + ~0.15 s translation +
+this gap (~0.3 s for ElevenLabs).
 
 ## Bottom line
 
