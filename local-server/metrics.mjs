@@ -30,6 +30,8 @@ export function summarize(events) {
         sessionIds: new Set(),
         translateSamples: [],
         turnAroundSamples: [],
+        perCharSamples: [],
+        charSamples: [],
         promptCounts: new Map()
       });
     }
@@ -46,7 +48,11 @@ export function summarize(events) {
       bucket.promptCounts.set(legKey, (bucket.promptCounts.get(legKey) ?? 0) + 1);
 
       if (state.lastTextOut && state.lastTextOut.leg === event.leg) {
-        bucket.turnAroundSamples.push(event.ts - state.lastTextOut.ts);
+        const elapsed = event.ts - state.lastTextOut.ts;
+        bucket.turnAroundSamples.push(elapsed);
+        if (state.lastTextOut.chars > 0) {
+          bucket.perCharSamples.push(elapsed / state.lastTextOut.chars);
+        }
         state.lastTextOut = null;
       }
       state.lastPromptIn = { ts: event.ts, leg: event.leg };
@@ -55,7 +61,8 @@ export function summarize(events) {
         bucket.translateSamples.push(event.ts - state.lastPromptIn.ts);
         state.lastPromptIn = null;
       }
-      state.lastTextOut = { ts: event.ts, leg: event.leg };
+      if (event.chars > 0) bucket.charSamples.push(event.chars);
+      state.lastTextOut = { ts: event.ts, leg: event.leg, chars: event.chars };
     }
   }
 
@@ -67,6 +74,10 @@ export function summarize(events) {
       turns: bucket.translateSamples.length,
       translateLatency: computeStats(bucket.translateSamples),
       turnAround: computeStats(bucket.turnAroundSamples),
+      turnAroundPerChar: computeStats(bucket.perCharSamples),
+      avgChars: bucket.charSamples.length
+        ? bucket.charSamples.reduce((sum, n) => sum + n, 0) / bucket.charSamples.length
+        : null,
       promptsPerLeg: counts.length
         ? counts.reduce((sum, n) => sum + n, 0) / counts.length
         : 0

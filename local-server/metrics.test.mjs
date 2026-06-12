@@ -50,6 +50,33 @@ test('summarize groups by combo and counts fragmented prompts', () => {
   assert.equal(summary[2].turnAround, null);
 });
 
+test('summarize normalizes turn-around by chars when text events carry them', () => {
+  const events = [
+    ev(1000, 's1', 1, 'caller', 'in', 'prompt'),
+    { ...ev(1100, 's1', 1, 'callee', 'out', 'text'), chars: 50 },
+    ev(6100, 's1', 1, 'callee', 'in', 'prompt'),   // turn-around 5000ms over 50 chars = 100 ms/char
+    { ...ev(6200, 's1', 1, 'caller', 'out', 'text'), chars: 200 },
+    ev(16200, 's1', 1, 'caller', 'in', 'prompt')   // 10000ms over 200 chars = 50 ms/char
+  ];
+  const summary = summarize(events);
+  assert.equal(summary[1].turnAround.avg, 7500);          // raw still confounded by length
+  assert.equal(summary[1].turnAroundPerChar.min, 50);     // normalized tells the truth
+  assert.equal(summary[1].turnAroundPerChar.p95, 100);
+  assert.equal(summary[1].avgChars, 125);                 // (50 + 200) / 2
+});
+
+test('summarize leaves per-char stats null for legacy events without chars', () => {
+  const events = [
+    ev(1000, 's1', 1, 'caller', 'in', 'prompt'),
+    ev(1100, 's1', 1, 'callee', 'out', 'text'),
+    ev(4000, 's1', 1, 'callee', 'in', 'prompt')
+  ];
+  const summary = summarize(events);
+  assert.equal(summary[1].turnAround.avg, 2900);
+  assert.equal(summary[1].turnAroundPerChar, null);
+  assert.equal(summary[1].avgChars, null);
+});
+
 test('summarize ignores events without a comboId and non prompt/text types', () => {
   const events = [
     { ts: 1, sessionId: 's1', leg: 'caller', direction: 'in', type: 'prompt' },

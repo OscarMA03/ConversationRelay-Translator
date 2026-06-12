@@ -392,7 +392,8 @@ async function handlePrompt(connectionId, body) {
     comboId: party.testComboId,
     leg: target.whichParty,
     direction: 'out',
-    type: 'text'
+    type: 'text',
+    chars: translated.length
   });
 }
 

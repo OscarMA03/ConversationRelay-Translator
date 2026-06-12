@@ -28,9 +28,9 @@ const ms = (stats) => (stats
   : '-');
 
 console.log(
-  'Combo  Label              Sessions  Turns   Translate ms (min/avg/p95)   Turn-around ms (min/avg/p95)  Prompts/leg'
+  'Combo  Label              Sessions  Turns   Translate ms (min/avg/p95)   Turn-around ms (min/avg/p95)   ms/char (min/avg/p95)  Avg chars  Prompts/leg'
 );
-console.log('-'.repeat(112));
+console.log('-'.repeat(146));
 for (const id of ids) {
   const row = summary[id];
   let label;
@@ -46,8 +46,12 @@ for (const id of ids) {
     + String(row.turns).padStart(7)
     + ms(row.translateLatency).padStart(29)
     + ms(row.turnAround).padStart(30)
+    + ms(row.turnAroundPerChar).padStart(24)
+    + (row.avgChars === null ? '-' : String(Math.round(row.avgChars))).padStart(11)
     + row.promptsPerLeg.toFixed(1).padStart(13)
   );
 }
+console.log('\nms/char = turn-around divided by the length of the sentence the voice had to');
+console.log('speak — normalizes out sentence length so voice tiers compare fairly.');
 console.log('\nTurn-around includes TTS playback, the listener\'s reply, STT, and endpointing —');
 console.log('compare combos only across calls that followed the same script.');
