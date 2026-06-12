@@ -39,7 +39,7 @@ the full measured loop: text sent → TTS + playback + reply + transcription.
 
 | Provider / tier | Our verdict by ear | Same voice in both languages?⁵ | Pronunciation control⁶ | Voice selection | Our live-call exchange time³ | Cost to us² |
 |---|---|---|---|---|---|---|
-| **ElevenLabs Flash v2.5** ← current | 🏆 Our pick — feels like an actual human talking | ✅ Yes — one "translator" voice for es + en | Weak (English-only phonemes; numbers can stumble) | 1,000+ voices, 32 languages | ~10.7 s | $0.07/min flat |
+| **ElevenLabs Flash v2.5** ← current | 🏆 Our pick — feels like an actual human talking | ✅ Yes — one "translator" voice for es + en | Weak on paper — but no issues heard in our calls (handled "the 805" etc. cleanly) | 1,000+ voices, 32 languages | ~10.7 s | $0.07/min flat |
 | **ElevenLabs Turbo v2.5** | Human-like too, but deprecated — skip | ✅ Yes | Weak | Same library | ~12.7 s | $0.07/min flat |
 | **Amazon Polly Generative** | Best Polly, still feels robotic | ❌ No — different persona per language | Strong (SSML: spell out numbers, dates, addresses) | ~43 voices; no Portugal-Portuguese | ~12.4 s | $0.07/min flat |
 | **Amazon Polly Neural** | Robotic feel | ❌ No | Strong (SSML) | Wide catalog | ~8.7 s | $0.07/min flat |
