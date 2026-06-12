@@ -132,3 +132,19 @@ enabling ms/char (turn-around ÷ characters the voice had to speak).
 
 Raw events: `local-server/test-results.jsonl` (runs 1–2 archived as
 `test-results-run1.jsonl` / `test-results-run2.jsonl`).
+
+### Cycle 3 isolated (the only cycle with sentence-length tracking)
+
+| Combo | Tier | Turns | Turn-around avg (p95) | ms/char avg (min–p95) | Avg sentence | Translate avg |
+|---|---|---|---|---|---|---|
+| 1 | Polly Generative | 6 | 17.3 s (24.2) | 206 (108–398) | 86 chars | 188 ms |
+| 2 | Polly Neural | 10 | 9.7 s (17.7) | 145 (29–236) | 56 chars | 170 ms |
+| 3 | Polly Standard | 9 | 12.3 s (19.1) | 223 (120–348) | 63 chars | 197 ms |
+| 4 | ElevenLabs Flash v2.5 | 9 | 11.2 s (17.2) | 179 (90–292) | 64 chars | 148 ms |
+| 5 | ElevenLabs Turbo v2.5 | 10 | 12.5 s (18.6) | 212 (77–437) | 70 chars | 182 ms |
+
+The normalization demonstrably corrects the sentence-length confound (combo 1's
+long sentences explain its 17 s raw average; ms/char puts it mid-pack). The
+tier ranking still does not stabilize at 6–10 turns per combo — per-turn spread
+is 3–4×, so human reply variation dominates differences this small. Quality by
+ear remains the deciding metric.
