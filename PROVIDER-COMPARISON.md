@@ -62,7 +62,7 @@ voice start-up delays (only solid for ElevenLabs, ~288 ms; unpublished for
 Polly) live in `docs/voice-provider-comparison.md`.
 Full data: `docs/polly-tier-test-results.md`.
 
-## Pipeline metrics (measured on our calls — same for every voice tier)
+### What we measured around the voices (same for every tier)
 
 | Metric | Measured value | What it tells us |
 |---|---|---|
@@ -70,6 +70,7 @@ Full data: `docs/polly-tier-test-results.md`.
 | Translation quality | 74 pairs reviewed: accurate & natural | Two quirks: Spanish questions can translate as statements; numbers/places handled correctly |
 | Choppiness (fragments per call) | ~3.8 avg | How often transcription splits one utterance into pieces — the baseline a Deepgram Flux test would try to beat |
 | Code-switching | Breaks transcription | Speaking English on the Spanish line garbles transcripts; Deepgram's `multi` mode is the untested fix |
+
 
 ## Bottom line
 
