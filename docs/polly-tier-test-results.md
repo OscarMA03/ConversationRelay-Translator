@@ -99,3 +99,36 @@ human preference (Elo, like chess ratings), plus our own ears:
 - Per-call rubric for future voice auditions (score 1–5 each): naturalness /
   first-word delay feel / pronunciation of numbers & names / consistency
   between Spanish and English legs.
+
+## Run 3 — full speed run (2026-06-12, 3 cycles × 5 combos, ~115 turns)
+
+Full AWS pipeline on every turn; cycle 3 also recorded sentence lengths,
+enabling ms/char (turn-around ÷ characters the voice had to speak).
+
+| Combo | Tier | Sessions | Turns | Turn-around avg (p95) | ms/char avg | Translate avg |
+|---|---|---|---|---|---|---|
+| 1 | Polly Generative | 3 | 21 | 11.5 s (24.2) | 206 | 145 ms |
+| 2 | Polly Neural | 3 | 23 | 10.2 s (18.2) | 145 | 158 ms |
+| 3 | Polly Standard | 3 | 22 | 10.7 s (19.1) | 223 | 174 ms |
+| 4 | ElevenLabs Flash v2.5 | 3 | 23 | 11.7 s (17.8) | 179 | 172 ms |
+| 5 | ElevenLabs Turbo v2.5 | 3 | 26 | 11.9 s (19.4) | 212 | 156 ms |
+
+### Conclusions (supersede the run-2 latency claims)
+
+1. **At natural conversation pace, the voice tier does not measurably change
+   total turn latency.** All five tiers landed at 10–12 s per turn; even
+   length-normalized ms/char values overlap with no stable ranking. Human
+   speaking/thinking time dominates; sub-second TTS differences are below this
+   instrument's noise floor.
+2. **The run-2 "ElevenLabs halved turn-around" finding did not reproduce** —
+   it was a single snappy conversation, not the voice. Treat published
+   independent benchmarks (ElevenLabs Flash ~288 ms / Turbo ~264 ms TTFA) as
+   the speed evidence; they remain the best available numbers.
+3. **Translate hop definitively characterized:** 145–174 ms average across
+   ~115 fully-real turns. A non-factor in perceived latency.
+4. **Decision unchanged: ElevenLabs Flash v2.5 stays the default** — on
+   quality (our ears + blind-test rankings) and published speed, not on our
+   turn-around data. Turbo was indistinguishable by ear and is deprecated.
+
+Raw events: `local-server/test-results.jsonl` (runs 1–2 archived as
+`test-results-run1.jsonl` / `test-results-run2.jsonl`).

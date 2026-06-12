@@ -39,27 +39,33 @@ the full measured loop: text sent → TTS + playback + reply + transcription.
 
 | Provider / tier | Speed (first audio) | Our measured turn-around | Quality (blind-test rank) | Our verdict by ear | Cost to us |
 |---|---|---|---|---|---|
-| **ElevenLabs Flash v2.5** ← current | ~288 ms (independently measured) | **3.5 s avg, fastest turn 0.95 s** 🏆 | Best in ConversationRelay (global top ~25) | 🏆 Our pick — natural and snappy | $0.07/min flat² |
-| **ElevenLabs Turbo v2.5** | ~264 ms (independently measured; tie with Flash) | not tested | Slightly above Flash | — (skip, deprecated) | $0.07/min flat² |
-| **Amazon Polly Generative** | ~100–500 ms (estimate only; AWS publishes nothing) | 6.2 s avg | ~rank 33, tied w/ Chirp 3 HD | Natural; best Polly | $0.07/min flat² |
-| **Amazon Polly Neural** | ~100–300 ms (third-party benchmarks) | 5.2 s avg | Elo ~868 (legacy tier) | Decent | $0.07/min flat² |
-| **Amazon Polly Standard** | Fast | 6.3 s avg | bottom tier | Robotic | $0.07/min flat² |
+| **ElevenLabs Flash v2.5** ← current | ~288 ms (independently measured) | 11.7 s avg² | Best in ConversationRelay (global top ~25) | 🏆 Our pick — natural and snappy | $0.07/min flat² |
+| **ElevenLabs Turbo v2.5** | ~264 ms (independently measured; tie with Flash) | 11.9 s avg² | Slightly above Flash | — (skip, deprecated) | $0.07/min flat² |
+| **Amazon Polly Generative** | ~100–500 ms (estimate only; AWS publishes nothing) | 11.5 s avg² | ~rank 33, tied w/ Chirp 3 HD | Natural; best Polly | $0.07/min flat² |
+| **Amazon Polly Neural** | ~100–300 ms (third-party benchmarks) | 10.2 s avg² | Elo ~868 (legacy tier) | Decent | $0.07/min flat² |
+| **Amazon Polly Standard** | Fast | 10.7 s avg² | bottom tier | Robotic | $0.07/min flat² |
 | **Google Chirp 3 HD** | ~300–600 ms (mixed reports) — its weak point | not tested | Tied with Polly Generative | — | $0.07/min flat² |
 
 ² Same flat Twilio rate for every voice — quality upgrades are free. (Direct
 list prices, only relevant outside Twilio: ElevenLabs ~$0.045/min, Polly
 Generative ~$0.027, Neural ~$0.014, Standard ~$0.0036, Chirp 3 HD ~$0.027.)
 
-Pipeline context from the same calls: the translate hop (AWS Translate) measured
-80–183 ms — a rounding error. Perceived delay is dominated by STT end-of-utterance
-detection (~1 s) plus TTS; switching Polly → ElevenLabs roughly halved turn-around.
+² Measured across 3 cycles (~115 turns, full AWS pipeline): **all five tiers
+landed at 10–12 s per turn at natural conversation pace — statistically
+indistinguishable**, even after normalizing for sentence length. Human reply
+time dominates; sub-second TTS differences are below what a human-in-the-loop
+test can resolve. Speed comparisons between tiers should rely on the
+independently measured figures in the speed column. The translate hop measured
+145–174 ms avg across all turns — a non-factor. Full data:
+`docs/polly-tier-test-results.md`.
 
 ## Bottom line
 
 - **STT:** already on the best option (Deepgram); the experiment worth trying is `flux`.
-- **TTS: tested and decided** — ElevenLabs Flash v2.5 won our live test (~2–3 s
-  faster per turn than every Polly tier, better by ear, same flat Twilio price)
-  and is now the default. Weak spots to watch: raw numbers/abbreviations and
-  English-only SSML.
+- **TTS: tested and decided** — ElevenLabs Flash v2.5 is the default, chosen on
+  voice quality (our ears + blind-test rankings) and published speed benchmarks;
+  our own 3-cycle live test showed tier choice doesn't measurably change total
+  turn latency at conversation pace. Weak spots to watch: raw
+  numbers/abbreviations and English-only SSML.
 - **Re-test anytime:** set `PROVIDER_TEST_MODE=true` in `.env`, call, then
   `npm run report`. Full results log: `docs/polly-tier-test-results.md`.
