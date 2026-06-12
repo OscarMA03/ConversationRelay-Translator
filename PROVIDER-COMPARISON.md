@@ -39,10 +39,10 @@ the full measured loop: text sent → TTS + playback + reply + transcription.
 
 | Provider / tier | Speed (first audio) | Our measured turn-around | Quality (blind-test rank) | Our verdict by ear | Cost to us |
 |---|---|---|---|---|---|
-| **ElevenLabs Flash v2.5** ← current | ~288 ms (independently measured) | 11.7 s avg² | Best in ConversationRelay (global top ~25) | 🏆 Our pick — natural and snappy | $0.07/min flat² |
-| **ElevenLabs Turbo v2.5** | ~264 ms (independently measured; tie with Flash) | 11.9 s avg² | Slightly above Flash | — (skip, deprecated) | $0.07/min flat² |
-| **Amazon Polly Generative** | ~100–500 ms (estimate only; AWS publishes nothing) | 11.5 s avg² | ~rank 33, tied w/ Chirp 3 HD | Natural; best Polly | $0.07/min flat² |
-| **Amazon Polly Neural** | ~100–300 ms (third-party benchmarks) | 10.2 s avg² | Elo ~868 (legacy tier) | Decent | $0.07/min flat² |
+| **ElevenLabs Flash v2.5** ← current | ~288 ms (independently measured) | 11.7 s avg² | Best in ConversationRelay (global top ~25) | 🏆 Our pick — feels like an actual human talking | $0.07/min flat² |
+| **ElevenLabs Turbo v2.5** | ~264 ms (independently measured; tie with Flash) | 11.9 s avg² | Slightly above Flash | Human-like too, but deprecated — skip | $0.07/min flat² |
+| **Amazon Polly Generative** | ~100–500 ms (estimate only; AWS publishes nothing) | 11.5 s avg² | ~rank 33, tied w/ Chirp 3 HD | Best Polly, still feels robotic | $0.07/min flat² |
+| **Amazon Polly Neural** | ~100–300 ms (third-party benchmarks) | 10.2 s avg² | Elo ~868 (legacy tier) | Robotic feel | $0.07/min flat² |
 | **Amazon Polly Standard** | Fast | 10.7 s avg² | bottom tier | Robotic | $0.07/min flat² |
 | **Google Chirp 3 HD** | ~300–600 ms (mixed reports) — its weak point | not tested | Tied with Polly Generative | — | $0.07/min flat² |
 

@@ -36,10 +36,10 @@ Protocol: short conversational calls, caller in Spanish, agent in English.
 
 | Combo | Tier | Sessions | Turns | Turn-around avg (p95) | Translate avg | Quality (by ear) |
 |---|---|---|---|---|---|---|
-| 1 | Polly Generative | 1 | 5 | 6.2 s (8.4 s) | 183 ms | **Best — sounded the most natural** |
-| 2 | Polly Neural | 1 | 6 | 5.2 s (7.6 s) | 119 ms | Fine, acceptable |
+| 1 | Polly Generative | 1 | 5 | 6.2 s (8.4 s) | 183 ms | Best of Polly, but still feels robotic next to ElevenLabs |
+| 2 | Polly Neural | 1 | 6 | 5.2 s (7.6 s) | 119 ms | Robotic feel |
 | 3 | Polly Standard | 1 | 5 | 6.3 s (9.6 s) | 121 ms | Robotic |
-| 4 | ElevenLabs Flash v2.5 | 1 | 8 | **3.5 s (5.7 s)**, fastest turn 0.95 s | 121 ms | **Sounds good, switches fast** |
+| 4 | ElevenLabs Flash v2.5 | 1 | 8 | **3.5 s (5.7 s)**, fastest turn 0.95 s | 121 ms | **Feels like an actual human talking** |
 
 ## Verdict
 
