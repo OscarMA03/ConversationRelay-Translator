@@ -34,16 +34,9 @@ Twilio: Deepgram nova-3 ~$0.005–0.008/min, flux ~$0.007, Google ~$0.016.)
 ## Text-to-speech (`ttsProvider`)
 
 Results from our own live test calls (2026-06-11, es↔en two-party translation;
-full data in `docs/polly-tier-test-results.md`). What each column looks at:
+full data in `docs/polly-tier-test-results.md`).
 
-- **Our verdict by ear** — how the voice actually sounded to us on real calls
-- **Same voice in both languages?** — whether one consistent "translator" voice can speak both Spanish and English, or the persona switches per language
-- **Voice selection** — how many voices/languages you can pick from
-- **Avg words/sentence (cycle 3)** — how long the sentences happened to be in that voice's test call (context for exchange time — longer sentences = slower loops)
-- **Our live-call exchange time** — full measured loop on a real call: voice speaks → person replies → reply transcribed back
-- **Cost to us** — what we actually pay Twilio per minute (flat, regardless of voice)
-
-| Provider / tier | Our verdict by ear | Same voice in both languages?⁵ | Voice selection | Avg words/sentence (cycle 3) | Our live-call exchange time³ | Cost to us² |
+| Provider / tier | Our verdict by ear<br><sub>how the voice actually sounded on real calls</sub> | Same voice in both languages?⁵<br><sub>one "translator" voice for es + en, or persona switches</sub> | Voice selection<br><sub>voices/languages to pick from</sub> | Avg words/sentence (cycle 3)<br><sub>sentence length in that test call — longer = slower loops</sub> | Our live-call exchange time³<br><sub>voice speaks → person replies → reply transcribed</sub> | Cost to us²<br><sub>what we pay Twilio, flat per minute</sub> |
 |---|---|---|---|---|---|---|
 | **ElevenLabs Flash v2.5** ← current | 🏆 Our pick — feels like an actual human talking | Your choice — one voice can speak both es + en, or a different voice per language (our setup: different) | 1,000+ voices, 32 languages | 11.3 | ~10.7 s | $0.07/min flat |
 | **ElevenLabs Turbo v2.5** | Human-like too, but deprecated — skip | Your choice (same as Flash) | Same library | 10.6 | ~12.7 s | $0.07/min flat |
