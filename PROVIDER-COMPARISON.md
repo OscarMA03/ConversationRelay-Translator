@@ -33,9 +33,15 @@ Twilio: Deepgram nova-3 ~$0.005–0.008/min, flux ~$0.007, Google ~$0.016.)
 
 ## Text-to-speech (`ttsProvider`)
 
-Includes results from our own live test calls (2026-06-11, es↔en two-party
-translation; full data in `docs/polly-tier-test-results.md`). "Turn-around" is
-the full measured loop: text sent → TTS + playback + reply + transcription.
+Results from our own live test calls (2026-06-11, es↔en two-party translation;
+full data in `docs/polly-tier-test-results.md`). What each column looks at:
+
+- **Our verdict by ear** — how the voice actually sounded to us on real calls
+- **Same voice in both languages?** — whether one consistent "translator" voice can speak both Spanish and English, or the persona switches per language
+- **Voice selection** — how many voices/languages you can pick from
+- **Avg words/sentence (cycle 3)** — how long the sentences happened to be in that voice's test call (context for exchange time — longer sentences = slower loops)
+- **Our live-call exchange time** — full measured loop on a real call: voice speaks → person replies → reply transcribed back
+- **Cost to us** — what we actually pay Twilio per minute (flat, regardless of voice)
 
 | Provider / tier | Our verdict by ear | Same voice in both languages?⁵ | Voice selection | Avg words/sentence (cycle 3) | Our live-call exchange time³ | Cost to us² |
 |---|---|---|---|---|---|---|
