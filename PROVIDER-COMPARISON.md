@@ -37,14 +37,14 @@ Includes results from our own live test calls (2026-06-11, es↔en two-party
 translation; full data in `docs/polly-tier-test-results.md`). "Turn-around" is
 the full measured loop: text sent → TTS + playback + reply + transcription.
 
-| Provider / tier | Our live-call exchange time³ | Translation step⁵ | Choppiness⁵ | Our verdict by ear | Cost to us² |
-|---|---|---|---|---|---|
-| **ElevenLabs Flash v2.5** ← current | ~10.7 s | ~160 ms | ~3.8 fragments/call | 🏆 Our pick — feels like an actual human talking | $0.07/min flat |
-| **ElevenLabs Turbo v2.5** | ~12.7 s | ~160 ms | ~3.8 | Human-like too, but deprecated — skip | $0.07/min flat |
-| **Amazon Polly Generative** | ~12.4 s | ~160 ms | ~3.8 | Best Polly, still feels robotic | $0.07/min flat |
-| **Amazon Polly Neural** | ~8.7 s | ~160 ms | ~3.8 | Robotic feel | $0.07/min flat |
-| **Amazon Polly Standard** | ~13.4 s | ~160 ms | ~3.8 | Robotic | $0.07/min flat |
-| **Google Chirp 3 HD** | not tested | ~160 ms | ~3.8 | — | $0.07/min flat |
+| Provider / tier | Our verdict by ear | Same voice in both languages?⁵ | Pronunciation control⁶ | Voice selection | Our live-call exchange time³ | Cost to us² |
+|---|---|---|---|---|---|---|
+| **ElevenLabs Flash v2.5** ← current | 🏆 Our pick — feels like an actual human talking | ✅ Yes — one "translator" voice for es + en | Weak (English-only phonemes; numbers can stumble) | 1,000+ voices, 32 languages | ~10.7 s | $0.07/min flat |
+| **ElevenLabs Turbo v2.5** | Human-like too, but deprecated — skip | ✅ Yes | Weak | Same library | ~12.7 s | $0.07/min flat |
+| **Amazon Polly Generative** | Best Polly, still feels robotic | ❌ No — different persona per language | Strong (SSML: spell out numbers, dates, addresses) | ~43 voices; no Portugal-Portuguese | ~12.4 s | $0.07/min flat |
+| **Amazon Polly Neural** | Robotic feel | ❌ No | Strong (SSML) | Wide catalog | ~8.7 s | $0.07/min flat |
+| **Amazon Polly Standard** | Robotic | ❌ No | Strong (SSML) | Wide catalog | ~13.4 s | $0.07/min flat |
+| **Google Chirp 3 HD** | — (not tested) | ✅ Yes — 8 personas across 31 locales | None in streaming mode | 8 personas | not tested | $0.07/min flat |
 
 ² Same flat Twilio rate for every voice — quality upgrades are free. (Direct
 list prices, only relevant outside Twilio: ElevenLabs ~$0.045/min, Polly
@@ -62,13 +62,21 @@ voice start-up delays (only solid for ElevenLabs, ~288 ms; unpublished for
 Polly) live in `docs/voice-provider-comparison.md`.
 Full data: `docs/polly-tier-test-results.md`.
 
-⁵ Translation step (AWS Translate, ~160 ms avg over 115 turns, identical both
-directions) and choppiness (~3.8 transcription fragments per call, from
-Deepgram) are the same on every row because they happen before the voice —
-they don't depend on which voice speaks the result. Translation quality (74
-pairs reviewed): accurate and natural; quirks — Spanish questions can come out
-as statements, and speaking English on the Spanish line garbles transcription
-(Deepgram `multi` mode is the untested fix; Flux would target the ~3.8).
+⁵ Matters for a translation app: with one cross-language voice, each person
+hears the same "translator" in both languages; otherwise the voice switches
+persona between languages.
+
+⁶ SSML lets you force how numbers, dates, and addresses are read aloud —
+Polly's strength and ElevenLabs' weak spot (its known failure mode is raw
+numbers/abbreviations; the `elevenlabsTextNormalization` TwiML attribute is
+the mitigation).
+
+Pipeline stages upstream of the voice (identical regardless of tier):
+transcription choppiness ~3.8 fragments/call (Deepgram; Flux would target
+this), translation ~160 ms avg over 115 turns and accurate in both directions
+(74 pairs reviewed; Spanish questions occasionally translate as statements;
+English spoken on the Spanish line garbles transcription — Deepgram `multi`
+mode is the untested fix).
 
 
 ## Bottom line
