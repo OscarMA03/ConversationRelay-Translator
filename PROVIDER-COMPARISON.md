@@ -41,9 +41,9 @@ the full measured loop: text sent → TTS + playback + reply + transcription.
 |---|---|---|---|---|---|---|
 | **ElevenLabs Flash v2.5** ← current | 🏆 Our pick — feels like an actual human talking | Your choice — one voice can speak both es + en, or a different voice per language (our setup: different) | 1,000+ voices, 32 languages | 11.3 | ~10.7 s | $0.07/min flat |
 | **ElevenLabs Turbo v2.5** | Human-like too, but deprecated — skip | Your choice (same as Flash) | Same library | 10.6 | ~12.7 s | $0.07/min flat |
-| **Amazon Polly Generative** | Best Polly, still feels robotic | ❌ No — different persona per language | ~43 voices; no Portugal-Portuguese | 18.8 | ~12.4 s | $0.07/min flat |
-| **Amazon Polly Neural** | Robotic feel | ❌ No | Wide catalog | 10.4 | ~8.7 s | $0.07/min flat |
-| **Amazon Polly Standard** | Robotic | ❌ No | Wide catalog | 11.7 | ~13.4 s | $0.07/min flat |
+| **Amazon Polly Generative** | Best Polly — still sounds robotic and the flow seems off | ❌ No — different persona per language | ~43 voices; no Portugal-Portuguese | 18.8 | ~12.4 s | $0.07/min flat |
+| **Amazon Polly Neural** | Voice sounds robotic and the flow seems off | ❌ No | Wide catalog | 10.4 | ~8.7 s | $0.07/min flat |
+| **Amazon Polly Standard** | Very robotic and the flow seems off | ❌ No | Wide catalog | 11.7 | ~13.4 s | $0.07/min flat |
 | **Google Chirp 3 HD** | — (not tested) | ✅ Yes — 8 personas across 31 locales | 8 personas | — | not tested | $0.07/min flat |
 
 ² Same flat Twilio rate for every voice — quality upgrades are free. (Direct

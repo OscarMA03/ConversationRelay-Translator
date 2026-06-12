@@ -20,9 +20,9 @@ sound, how fast the conversation flows, and what they cost.
 |---|---|---|---|
 | **ElevenLabs Flash** ✅ *our choice* | **Like an actual human talking** | Same as the others | Same as the others |
 | ElevenLabs Turbo | Also human-like, but being discontinued | Same | Same |
-| Amazon Polly Generative | Amazon's best — still sounds robotic | Same | Same |
-| Amazon Polly Neural | Robotic | Same | Same |
-| Amazon Polly Standard | Very robotic | Same | Same |
+| Amazon Polly Generative | Amazon's best — still robotic, and the flow of speech seems off | Same | Same |
+| Amazon Polly Neural | Robotic, flow seems off | Same | Same |
+| Amazon Polly Standard | Very robotic, flow seems off | Same | Same |
 
 ## The three takeaways
 
