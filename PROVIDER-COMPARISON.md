@@ -44,11 +44,10 @@ the full measured loop: text sent → TTS + playback + reply + transcription.
 | **Amazon Polly Generative** | Best Polly — still sounds robotic and the flow seems off | ❌ No — different persona per language | ~43 voices; no Portugal-Portuguese | 18.8 | ~12.4 s | $0.07/min flat |
 | **Amazon Polly Neural** | Voice sounds robotic and the flow seems off | ❌ No | Wide catalog | 10.4 | ~8.7 s | $0.07/min flat |
 | **Amazon Polly Standard** | Very robotic and the flow seems off | ❌ No | Wide catalog | 11.7 | ~13.4 s | $0.07/min flat |
-| **Google Chirp 3 HD** | — (not tested) | ✅ Yes — 8 personas across 31 locales | 8 personas | — | not tested | $0.07/min flat |
 
 ² Same flat Twilio rate for every voice — quality upgrades are free. (Direct
 list prices, only relevant outside Twilio: ElevenLabs ~$0.045/min, Polly
-Generative ~$0.027, Neural ~$0.014, Standard ~$0.0036, Chirp 3 HD ~$0.027.)
+Generative ~$0.027, Neural ~$0.014, Standard ~$0.0036.)
 
 ³ "Exchange time" = one full measured loop on a real call: the voice speaks a
 sentence → the listener hears it and replies → the reply is transcribed back.
