@@ -148,3 +148,22 @@ long sentences explain its 17 s raw average; ms/char puts it mid-pack). The
 tier ranking still does not stabilize at 6–10 turns per combo — per-turn spread
 is 3–4×, so human reply variation dominates differences this small. Quality by
 ear remains the deciding metric.
+
+## Extracted metrics (post-hoc analysis of recorded data)
+
+**Fragmentation (choppiness):** 3.5–4.3 utterance fragments per leg per call,
+flat across all five voice tiers — expected, since transcription (Deepgram
+nova-3) was constant. This sets the baseline (~3.8) that a Deepgram Flux
+experiment would aim to lower.
+
+**Direction asymmetry:** none. es→en 162 ms avg (53 turns), en→es 160 ms avg
+(62 turns). AWS Translate is symmetric.
+
+**Translation quality (74 unique pairs reviewed from call logs):** accurate and
+natural in both directions; numbers and place references handled correctly.
+Two defects observed:
+1. Spanish questions phrased without explicit question structure translate as
+   statements ("¿Me puedes ayudar...?" → "You can help me…"), losing intent.
+2. Speaking English on the Spanish-configured leg produces garbled transcripts
+   that pass through mangled — monolingual STT config can't code-switch.
+   Deepgram nova-3 supports a `multi` language mode that targets exactly this.
