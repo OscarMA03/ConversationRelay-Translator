@@ -17,6 +17,8 @@ const port = Number(process.env.PORT ?? 3000);
 const connections = new Map();
 /** @type {Array<Record<string, any>>} */
 const transcript = [];
+/** Last few inbound webhook payloads, newest first — for correlation-key research. */
+const inboundPayloads = [];
 
 const RESULTS_FILE = fileURLToPath(new URL('./test-results.jsonl', import.meta.url));
 
@@ -446,9 +448,24 @@ const server = http.createServer(async (req, res) => {
 
     if (url.pathname === '/twiml/inbound') {
       const params = await parseTwilioRequest(req);
+
+      // Full payload dump for correlation-key research. SipHeader_* params only
+      // appear when the call arrives via a Twilio SIP Domain (not plain PSTN).
+      const sipHeaders = Object.fromEntries(
+        Object.entries(params).filter(([k]) => k.startsWith('SipHeader_'))
+      );
+      log('INBOUND PAYLOAD ==>\n' + JSON.stringify(params, null, 2));
+      log('INBOUND SIP HEADERS ==>', JSON.stringify(sipHeaders));
+      inboundPayloads.unshift({ at: new Date().toISOString(), method: req.method, params, sipHeaders });
+      inboundPayloads.length = Math.min(inboundPayloads.length, 10);
+
       const twiml = await inboundTwiml(req, params);
-      log('served inbound TwiML', { from: params.From, to: params.To, wsUrl: getWsUrl(req) });
       send(res, 200, twiml, 'application/xml');
+      return;
+    }
+
+    if (url.pathname === '/last-inbound') {
+      send(res, 200, JSON.stringify(inboundPayloads, null, 2), 'application/json');
       return;
     }
 
