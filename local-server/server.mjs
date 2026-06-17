@@ -11,11 +11,15 @@ import { getCombo, nextCombo } from './combos.mjs';
 import { parseEvents, summarize } from './metrics.mjs';
 import { translateText } from './providers.mjs';
 import { startHoldMusic, clearHoldMusic, holdMusicConfig } from './hold-music.mjs';
+import { createSessionRegistry, normalizePhone } from './session-registry.mjs';
 
 const port = Number(process.env.PORT ?? 3000);
 
 /** @type {Map<string, Record<string, any>>} */
 const connections = new Map();
+// Shared session state, keyed by caller number: lets the two Webex flows exchange
+// info and exposes whether each call has been activated (bridged) yet.
+const sessions = createSessionRegistry();
 /** @type {Array<Record<string, any>>} */
 const transcript = [];
 /** Last few inbound webhook payloads, newest first — for correlation-key research. */
@@ -329,6 +333,9 @@ async function handleSetup(ws, connectionId, body) {
   });
 
   if (party.whichParty === 'caller') {
+    // Auto-register the caller as a waiting session so either Webex flow can look
+    // it up and see whether it's been activated yet.
+    if (party.From) sessions.register({ callerAni: party.From, callerConnectionId: party.pk });
     await maybeDialAgent(party);
     if (process.env.AUTO_DIAL_AGENT === 'true') {
       // DIAGNOSTIC: log every hold-music message we send, with timestamp.
@@ -384,16 +391,10 @@ function bridgeLegs(agentParty, caller) {
 
   clearHoldMusic(caller);
   clearAgentWhisper(agentParty);
+  // Mark the shared session activated so either flow can see it's connected.
+  sessions.activate(caller.From, { callerConnectionId: caller.pk, agentConnectionId: agentParty.pk });
   sendWs(caller.ws, { type: 'text', token: 'The translation session has begun.', last: true });
   sendWs(agentParty.ws, { type: 'text', token: 'The translation session has begun.', last: true });
-}
-
-// Canonical phone key for correlation matching. Strips formatting and a US
-// country code so "+16195764744", "6195764744", "(619) 576-4744" all compare equal.
-function normalizePhone(phone) {
-  const digits = String(phone ?? '').replace(/\D/g, '');
-  if (!digits) return '';
-  return digits.length === 11 && digits.startsWith('1') ? digits.slice(1) : digits;
 }
 
 // Find an agent leg that is awaiting accept whose caller's number matches `ani`.
@@ -578,6 +579,7 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/sessions') {
       send(res, 200, JSON.stringify({
         connections: [...connections.values()].map(({ ws, ...party }) => party),
+        registry: sessions.all(),
         transcript
       }, null, 2), 'application/json');
       return;
@@ -618,6 +620,37 @@ const server = http.createServer(async (req, res) => {
 
     if (url.pathname === '/last-inbound') {
       send(res, 200, JSON.stringify(inboundPayloads, null, 2), 'application/json');
+      return;
+    }
+
+    // Register / update a session from a Webex flow (shares info between flows).
+    // Accepts callerAni/phoneNumber/from plus an optional id, via query or body.
+    if (url.pathname === '/v1/register') {
+      const params = await parseTwilioRequest(req);
+      const callerAni = params.callerAni ?? params.phoneNumber ?? params.from ?? params.From;
+      const id = params.id ?? params.interactionId ?? null;
+      const entry = sessions.register({ callerAni, id });
+      if (!entry) {
+        send(res, 400, JSON.stringify({ ok: false, reason: 'callerAni/phoneNumber required' }), 'application/json');
+        return;
+      }
+      log('registered session', { callerAni, id, status: entry.status });
+      send(res, 200, JSON.stringify({ ok: true, entry }), 'application/json');
+      return;
+    }
+
+    // Is this call activated (bridged) yet? Webex polls/reads this.
+    if (url.pathname === '/v1/status') {
+      const params = await parseTwilioRequest(req);
+      const callerAni = params.callerAni ?? params.phoneNumber ?? params.from ?? params.From;
+      const entry = sessions.get(callerAni);
+      send(res, 200, JSON.stringify({
+        ok: true,
+        found: Boolean(entry),
+        activated: entry?.status === 'activated',
+        status: entry?.status ?? 'unknown',
+        entry: entry ?? null
+      }), 'application/json');
       return;
     }
 
