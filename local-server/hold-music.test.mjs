@@ -7,10 +7,10 @@ const COWBELL = 'https://api.twilio.com/cowbell.mp3';
 
 // Builds fakes: a `send` that records payloads, a `translate` that tags the
 // target language, and a manual timer store so tests control time precisely.
-function harness({ env = {}, party = {} } = {}) {
+function harness({ env = {}, party = {}, translate } = {}) {
   const sent = [];
   const send = (_ws, payload) => sent.push(payload);
-  const translate = async (text, _from, to) => `[${to}] ${text}`;
+  translate = translate ?? (async (text, _from, to) => `[${to}] ${text}`);
   const scheduled = [];
   const timers = {
     setTimeout: (fn, ms) => {
@@ -102,6 +102,19 @@ test('at the timeout it apologizes (translated), then ends the call', async () =
     type: 'end',
     handoffData: JSON.stringify({ reasonCode: 'agent-no-answer' }),
   });
+});
+
+test('malformed numeric env falls back to default delays', () => {
+  const config = holdMusicConfig({ HOLD_MUSIC_DELAY_MS: 'abc', HOLD_TIMEOUT_MS: 'xyz' });
+  assert.equal(config.delayMs, 10000);
+  assert.equal(config.timeoutMs, 45000);
+});
+
+test('a failing translate falls back to the English line (never silent)', async () => {
+  const h = harness({ translate: async () => { throw new Error('translate down'); } });
+  start(h);
+  await h.runMs(10000);
+  assert.equal(h.sent[1].token, h.config.message); // untranslated English, not missing
 });
 
 test('clearHoldMusic cancels pending line and timeout timers', async () => {

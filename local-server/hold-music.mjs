@@ -16,13 +16,21 @@ function envBool(value, fallback) {
   return value === undefined ? fallback : value === 'true';
 }
 
+// Parse a millisecond env value, falling back on anything non-finite. Guards
+// against a typo'd value (e.g. "abc") becoming NaN -> setTimeout(0), which would
+// fire the line immediately or hang the caller up almost instantly.
+function envMs(value, fallback) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
 /** Read config from env once (overridable for tests). */
 export function holdMusicConfig(env = process.env) {
   return {
     enabled: envBool(env.HOLD_MUSIC_ENABLED, true),
     url: env.HOLD_MUSIC_URL || DEFAULT_MUSIC_URL,
-    delayMs: Number(env.HOLD_MUSIC_DELAY_MS ?? 10000),
-    timeoutMs: Number(env.HOLD_TIMEOUT_MS ?? 45000),
+    delayMs: envMs(env.HOLD_MUSIC_DELAY_MS, 10000),
+    timeoutMs: envMs(env.HOLD_TIMEOUT_MS, 45000),
     message: env.HOLD_MUSIC_MESSAGE || DEFAULT_LINE,
     timeoutMessage: env.HOLD_TIMEOUT_MESSAGE || DEFAULT_TIMEOUT_LINE,
   };
