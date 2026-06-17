@@ -276,11 +276,28 @@ async function maybeDialAgent(callerParty) {
     throw new Error('AGENT_PHONE_NUMBER is required for outbound agent calls');
   }
 
-  const from = callerParty.To || process.env.TWILIO_DEFAULT_FROM;
+  // By default dial the agent from our Twilio number. With AGENT_DIAL_USE_CALLER_ID,
+  // present the customer's number instead so Webex (Flow 2) sees the caller's ANI
+  // and can pass it to /v1/call-answered. Twilio may reject a non-owned From — if
+  // the dial fails, fall back to the Twilio number.
+  const twilioFrom = callerParty.To || process.env.TWILIO_DEFAULT_FROM;
+  const useCallerId = process.env.AGENT_DIAL_USE_CALLER_ID === 'true' && callerParty.From;
+  const from = useCallerId ? callerParty.From : twilioFrom;
   const twiml = await outboundAgentTwiml(callerParty);
-  const call = await createTwilioCall({ to: process.env.AGENT_PHONE_NUMBER, from, twiml });
+
+  let call;
+  try {
+    call = await createTwilioCall({ to: process.env.AGENT_PHONE_NUMBER, from, twiml });
+  } catch (error) {
+    if (useCallerId) {
+      log('Agent dial with caller ID failed, retrying with Twilio number:', error?.message ?? error);
+      call = await createTwilioCall({ to: process.env.AGENT_PHONE_NUMBER, from: twilioFrom, twiml });
+    } else {
+      throw error;
+    }
+  }
   callerParty.targetCallSid = call.sid;
-  log('Dialed agent:', call.sid);
+  log('Dialed agent:', call.sid, 'from', from);
 }
 
 async function handleSetup(ws, connectionId, body) {
