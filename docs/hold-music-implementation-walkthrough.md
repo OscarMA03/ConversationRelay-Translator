@@ -13,9 +13,10 @@ was added and what each piece does.
 When someone calls in, the server immediately dials the agent's phone and the
 caller hears **silence** while it rings. This feature fills that gap:
 
-> 🎵 looping hold music → 🎤 one reassurance line ~10s in (in the caller's language)
-> → 🎵 music resumes → music **stops** when the agent answers (or the caller hangs up)
-> → ⏱️ if no one answers in 45s, apologize and end the call.
+> 🎵 looping hold music → 🎤 a reassurance line first ~10s in, then repeated every
+> ~15s (in the caller's language) → 🎵 music resumes after each line → music **stops**
+> when the agent answers (or the caller hangs up) → ⏱️ if no one answers in 45s,
+> apologize and end the call.
 
 ## 2. How we got here (process)
 
@@ -92,6 +93,7 @@ export function holdMusicConfig(env = process.env) {
     enabled: envBool(env.HOLD_MUSIC_ENABLED, true),
     url: env.HOLD_MUSIC_URL || DEFAULT_MUSIC_URL,
     delayMs: envMs(env.HOLD_MUSIC_DELAY_MS, 10000),
+    repeatMs: envMs(env.HOLD_MUSIC_REPEAT_MS, 15000),
     timeoutMs: envMs(env.HOLD_TIMEOUT_MS, 45000),
     message: env.HOLD_MUSIC_MESSAGE || DEFAULT_LINE,
     timeoutMessage: env.HOLD_TIMEOUT_MESSAGE || DEFAULT_TIMEOUT_LINE,
@@ -122,11 +124,13 @@ export function startHoldMusic(
   // (a) start looping music — preemptible so a later text can stop it
   playMusic(send, party.ws, config.url);
 
-  // (b) one spoken reassurance line ~delayMs in, then resume the music
-  party.holdLineTimer = timers.setTimeout(async () => {
+  // (b) speak the reassurance line ~delayMs in, then repeat it every repeatMs
+  const speakAndRepeat = async () => {
     speak(send, party.ws, await localize(translate, config.message, lang));
     playMusic(send, party.ws, config.url);
-  }, config.delayMs);
+    party.holdLineTimer = timers.setTimeout(speakAndRepeat, config.repeatMs);
+  };
+  party.holdLineTimer = timers.setTimeout(speakAndRepeat, config.delayMs);
 
   // (c) no-answer timeout: apologize (stops the music) then hang up the caller leg
   party.holdTimeoutTimer = timers.setTimeout(async () => {
@@ -137,8 +141,10 @@ export function startHoldMusic(
 }
 ```
 - **(a)** plays music immediately (after Twilio finishes the welcome greeting).
-- **(b)** a single timer at `delayMs` (default 10s) speaks one line, then re-sends
-  `play` so music resumes.
+- **(b)** a timer at `delayMs` (default 10s) speaks the line and resumes music, then
+  re-arms itself every `repeatMs` (default 15s) so the line repeats until pickup or
+  timeout. Re-assigning `party.holdLineTimer` each cycle means `clearHoldMusic` stops
+  the whole chain.
 - **(c)** a timer at `timeoutMs` (default 45s) apologizes and sends `end` (hang up).
 - Timer handles are stored **on the caller's connection object** (`party.holdLineTimer`,
   `party.holdTimeoutTimer`) so they can be cancelled later.
@@ -218,8 +224,10 @@ This is the **entire** diff to the server:
 HOLD_MUSIC_ENABLED=true
 # Looped track. Default is a Twilio sample (cowbell) — replace with a branded MP3.
 HOLD_MUSIC_URL=https://api.twilio.com/cowbell.mp3
-# How long after dialing the agent before the single spoken reassurance line plays.
+# How long after dialing the agent before the spoken reassurance line first plays.
 HOLD_MUSIC_DELAY_MS=10000
+# After the first line, repeat it every this many ms until pickup/timeout.
+HOLD_MUSIC_REPEAT_MS=15000
 # No-answer timeout: after this, apologize to the caller and hang up.
 HOLD_TIMEOUT_MS=45000
 # Reassurance line (auto-translated to the caller's language).
@@ -243,16 +251,18 @@ time is controlled, not waited on). They assert exact message payloads. Run with
 1. start sends a looping, preemptible `play`
 2. `HOLD_MUSIC_ENABLED=false` → sends nothing
 3. at the delay → translated line, then resume `play`
-4. English caller → line not translated
-5. at the timeout → translated apology, then `end`
-6. malformed numeric env → falls back to default delays *(added in review fix)*
-7. a failing `translate` → falls back to the English line, never silent *(added in review fix)*
-8. `clearHoldMusic` → cancels both timers (no line, no timeout fire)
+4. the line **repeats** every `repeatMs`, each followed by a resume `play`
+5. `clearHoldMusic` stops further repeats
+6. English caller → line not translated
+7. at the timeout → translated apology, then `end`
+8. malformed numeric env → falls back to default delays
+9. a failing `translate` → falls back to the English line, never silent
+10. `clearHoldMusic` → cancels both timers (no line, no timeout fire)
 
 ```
 $ npm test
-ℹ tests 42
-ℹ pass 42
+ℹ tests 44
+ℹ pass 44
 ℹ fail 0
 ```
 
@@ -283,6 +293,7 @@ and a second phone to act as the agent.
 5. **Call the number** and verify, in order:
    - Music starts after the welcome greeting while the agent's phone rings.
    - ~10s in: the reassurance line plays, **then music resumes**. ← the caveat check.
+   - The line then **repeats every ~15s** (so again around ~25s, ~40s).
    - Answer as the agent → music stops, normal translated call begins.
 6. **No-answer test:** call again, don't answer the agent for 45s → confirm the
    apology plays and the call ends.

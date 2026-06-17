@@ -30,6 +30,7 @@ export function holdMusicConfig(env = process.env) {
     enabled: envBool(env.HOLD_MUSIC_ENABLED, true),
     url: env.HOLD_MUSIC_URL || DEFAULT_MUSIC_URL,
     delayMs: envMs(env.HOLD_MUSIC_DELAY_MS, 10000),
+    repeatMs: envMs(env.HOLD_MUSIC_REPEAT_MS, 15000),
     timeoutMs: envMs(env.HOLD_TIMEOUT_MS, 45000),
     message: env.HOLD_MUSIC_MESSAGE || DEFAULT_LINE,
     timeoutMessage: env.HOLD_TIMEOUT_MESSAGE || DEFAULT_TIMEOUT_LINE,
@@ -62,11 +63,16 @@ export function startHoldMusic(
   // (a) start looping music — preemptible so a later text can stop it
   playMusic(send, party.ws, config.url);
 
-  // (b) one spoken reassurance line ~delayMs in, then resume the music
-  party.holdLineTimer = timers.setTimeout(async () => {
+  // (b) speak the reassurance line ~delayMs in, then repeat it every repeatMs.
+  // Each line resumes the music after it (the line is non-preemptible, so the
+  // following play queues behind it). Re-arming holdLineTimer each time means
+  // clearHoldMusic() cancels the whole chain.
+  const speakAndRepeat = async () => {
     speak(send, party.ws, await localize(translate, config.message, lang));
     playMusic(send, party.ws, config.url);
-  }, config.delayMs);
+    party.holdLineTimer = timers.setTimeout(speakAndRepeat, config.repeatMs);
+  };
+  party.holdLineTimer = timers.setTimeout(speakAndRepeat, config.delayMs);
 
   // (c) no-answer timeout: apologize (stops the music) then hang up the caller leg
   party.holdTimeoutTimer = timers.setTimeout(async () => {
