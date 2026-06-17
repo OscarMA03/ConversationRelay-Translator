@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { getCombo, nextCombo } from './combos.mjs';
 import { parseEvents, summarize } from './metrics.mjs';
 import { translateText } from './providers.mjs';
-import { startHoldMusic, clearHoldMusic } from './hold-music.mjs';
+import { startHoldMusic, clearHoldMusic, holdMusicConfig } from './hold-music.mjs';
 
 const port = Number(process.env.PORT ?? 3000);
 
@@ -192,7 +192,7 @@ async function outboundAgentTwiml(callerParty) {
       .replace(/^http:/, 'ws:'),
     relay: {
       welcomeGreeting: await localizedGreeting('Initiating translation session.', context.sourceLanguageCode),
-      dtmfDetection: 'false',
+      dtmfDetection: process.env.AGENT_ACCEPT_DTMF === 'true' ? 'true' : 'false',
       interruptByDtmf: 'false',
       language: context.sourceLanguage,
       transcriptionProvider: context.sourceTranscriptionProvider,
@@ -312,7 +312,13 @@ async function handleSetup(ws, connectionId, body) {
   if (party.whichParty === 'caller') {
     await maybeDialAgent(party);
     if (process.env.AUTO_DIAL_AGENT === 'true') {
-      startHoldMusic(party, { send: sendWs, translate: translateText });
+      // DIAGNOSTIC: log every hold-music message we send, with timestamp.
+      const loggedSend = (target, payload) => {
+        log('hold-music ->', party.pk, payload.type, payload.token ?? payload.source ?? '');
+        sendWs(target, payload);
+      };
+      startHoldMusic(party, { send: loggedSend, translate: translateText });
+      party.onHold = true;
     }
     return;
   }
@@ -324,22 +330,87 @@ async function handleSetup(ws, connectionId, body) {
       return;
     }
 
-    caller.translationActive = true;
-    caller.targetConnectionId = connectionId;
-    caller.targetLanguageCode = party.sourceLanguageCode;
-    caller.targetLanguage = party.sourceLanguage;
-    caller.targetTranscriptionProvider = party.sourceTranscriptionProvider;
-    caller.targetTtsProvider = party.sourceTtsProvider;
-    caller.targetVoice = party.sourceVoice;
-    caller.targetCallSid = party.callSid;
+    // With an ACD/queue (e.g. Webex) as the agent endpoint, the outbound call is
+    // auto-answered into a queue before a human is present. So when the accept
+    // gate is on, don't bridge on "answered" — wait for the human agent to press
+    // the accept key (handleDtmf). The caller stays on hold music until then.
+    if (process.env.AGENT_ACCEPT_DTMF === 'true') {
+      party.awaitingAccept = true;
+      log('agent leg connected — awaiting DTMF accept', { connectionId, callerId: caller.pk });
+      await startAgentWhisper(party);
+      return;
+    }
 
-    party.translationActive = true;
-    party.targetConnectionId = caller.pk;
-
-    clearHoldMusic(caller);
-    sendWs(caller.ws, { type: 'text', token: 'The translation session has begun.', last: true });
-    sendWs(party.ws, { type: 'text', token: 'The translation session has begun.', last: true });
+    bridgeLegs(party, caller);
   }
+}
+
+// Link the caller and agent legs: activate translation both ways, stop the
+// caller's hold music, and announce the session. Used both when bridging
+// immediately (no accept gate) and when the agent accepts via DTMF.
+function bridgeLegs(agentParty, caller) {
+  caller.translationActive = true;
+  caller.onHold = false;
+  caller.targetConnectionId = agentParty.pk;
+  caller.targetLanguageCode = agentParty.sourceLanguageCode;
+  caller.targetLanguage = agentParty.sourceLanguage;
+  caller.targetTranscriptionProvider = agentParty.sourceTranscriptionProvider;
+  caller.targetTtsProvider = agentParty.sourceTtsProvider;
+  caller.targetVoice = agentParty.sourceVoice;
+  caller.targetCallSid = agentParty.callSid;
+
+  agentParty.translationActive = true;
+  agentParty.awaitingAccept = false;
+  agentParty.targetConnectionId = caller.pk;
+
+  clearHoldMusic(caller);
+  clearAgentWhisper(agentParty);
+  sendWs(caller.ws, { type: 'text', token: 'The translation session has begun.', last: true });
+  sendWs(agentParty.ws, { type: 'text', token: 'The translation session has begun.', last: true });
+}
+
+const AGENT_WHISPER_REPEAT_MS = Number(process.env.AGENT_ACCEPT_REPEAT_MS) || 15000;
+
+// Repeatedly prompt the agent leg to press the accept key. Repeats because a
+// human joins the queued call late and must hear the prompt when they arrive.
+async function startAgentWhisper(agentParty) {
+  const digit = process.env.AGENT_ACCEPT_DIGIT || '1';
+  const text = await localizedGreeting(
+    `You have a translated call waiting. Press ${digit} to connect.`,
+    agentParty.sourceLanguageCode
+  );
+  const whisper = () => {
+    if (!agentParty.awaitingAccept) return;
+    sendWs(agentParty.ws, { type: 'text', token: text, last: true });
+    agentParty.whisperTimer = setTimeout(whisper, AGENT_WHISPER_REPEAT_MS);
+  };
+  whisper();
+}
+
+function clearAgentWhisper(agentParty) {
+  if (agentParty?.whisperTimer) {
+    clearTimeout(agentParty.whisperTimer);
+    agentParty.whisperTimer = null;
+  }
+}
+
+// The human agent pressed a key. If it's the accept key and this leg is waiting,
+// bridge the call (stops the caller's hold music and starts translation).
+function handleDtmf(connectionId, body) {
+  const party = connections.get(connectionId);
+  if (!party) return;
+  const digit = String(body.digit ?? body.digits ?? '');
+  log('dtmf', { connectionId, whichParty: party.whichParty, digit });
+  if (!party.awaitingAccept) return;
+  if (digit !== (process.env.AGENT_ACCEPT_DIGIT || '1')) return;
+
+  const caller = connections.get(party.targetConnectionId);
+  if (!caller) {
+    sendWs(party.ws, { type: 'text', token: 'Could not find the caller leg to connect.', last: true });
+    return;
+  }
+  log('agent accepted call', { connectionId, callerId: caller.pk });
+  bridgeLegs(party, caller);
 }
 
 async function handlePrompt(connectionId, body) {
@@ -348,6 +419,10 @@ async function handlePrompt(connectionId, body) {
 
   const text = body.voicePrompt ?? body.prompt ?? body.text ?? '';
   if (!text) return;
+
+  // While the caller is on hold music, or the agent hasn't accepted yet, ignore
+  // speech instead of replying with the "configuring translation" filler.
+  if (party.onHold || party.awaitingAccept) return;
 
   recordEvent({
     ts: Date.now(),
@@ -409,6 +484,7 @@ function handleDisconnect(connectionId) {
   if (!party) return;
 
   clearHoldMusic(party);
+  clearAgentWhisper(party);
 
   party.callStatus = 'disconnected';
   connections.delete(connectionId);
@@ -417,7 +493,15 @@ function handleDisconnect(connectionId) {
   const target = connections.get(party.targetConnectionId);
   if (target) {
     target.translationActive = false;
-    sendWs(target.ws, { type: 'text', token: 'The other person has ended the call.', last: true });
+    // If the agent leg was still waiting to accept (e.g. caller hung up or timed
+    // out on hold), stop whispering and hang that leg up too.
+    if (target.awaitingAccept) {
+      clearAgentWhisper(target);
+      target.awaitingAccept = false;
+      sendWs(target.ws, { type: 'end', handoffData: JSON.stringify({ reasonCode: 'caller-gone' }) });
+    } else {
+      sendWs(target.ws, { type: 'text', token: 'The other person has ended the call.', last: true });
+    }
   }
 }
 
@@ -497,7 +581,7 @@ wss.on('connection', (ws) => {
       if (body.type === 'setup') await handleSetup(ws, connectionId, body);
       else if (body.type === 'prompt') await handlePrompt(connectionId, body);
       else if (body.type === 'interrupt') log('interrupt', body);
-      else if (body.type === 'dtmf') log('dtmf', body);
+      else if (body.type === 'dtmf') handleDtmf(connectionId, body);
       else if (body.type === 'error') log('ConversationRelay error', body);
     } catch (error) {
       log('WebSocket message error:', error);
@@ -521,4 +605,6 @@ if (process.env.TEST_COMBO) {
 server.listen(port, () => {
   log(`Local ConversationRelay server listening on http://localhost:${port}`);
   log(`Twilio webhook: ${process.env.PUBLIC_BASE_URL || '<your tunnel>'}/twiml/inbound`);
+  // DIAGNOSTIC: confirm the resolved hold-music config the running server is using.
+  log('hold-music config:', holdMusicConfig());
 });
