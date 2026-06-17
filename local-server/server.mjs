@@ -286,18 +286,20 @@ async function maybeDialAgent(callerParty) {
   const twiml = await outboundAgentTwiml(callerParty);
 
   let call;
+  let dialedFrom = from;
   try {
     call = await createTwilioCall({ to: process.env.AGENT_PHONE_NUMBER, from, twiml });
   } catch (error) {
     if (useCallerId) {
       log('Agent dial with caller ID failed, retrying with Twilio number:', error?.message ?? error);
+      dialedFrom = twilioFrom;
       call = await createTwilioCall({ to: process.env.AGENT_PHONE_NUMBER, from: twilioFrom, twiml });
     } else {
       throw error;
     }
   }
   callerParty.targetCallSid = call.sid;
-  log('Dialed agent:', call.sid, 'from', from);
+  log('Dialed agent:', call.sid, 'from', dialedFrom);
 }
 
 async function handleSetup(ws, connectionId, body) {
