@@ -63,6 +63,24 @@ export function createSessionRegistry({ ttlMs = DEFAULT_TTL_MS, now = () => Date
     return get(callerAni)?.status === 'activated';
   }
 
+  // FIFO: the waiting entry with the earliest createdAt (longest in line). With
+  // { claim: true } it marks that entry 'claimed' so the next call returns the
+  // next-oldest instead of the same one. Returns null if nothing is waiting.
+  function oldestWaiting({ claim = false } = {}) {
+    prune();
+    let oldest = null;
+    for (const entry of byKey.values()) {
+      if (entry.status !== 'waiting') continue;
+      if (!oldest || entry.createdAt < oldest.createdAt) oldest = entry;
+    }
+    if (oldest && claim) {
+      oldest.status = 'claimed';
+      oldest.claimedAt = now();
+      oldest.updatedAt = now();
+    }
+    return oldest;
+  }
+
   function remove(callerAni) {
     return byKey.delete(normalizePhone(callerAni));
   }
@@ -72,5 +90,5 @@ export function createSessionRegistry({ ttlMs = DEFAULT_TTL_MS, now = () => Date
     return [...byKey.values()];
   }
 
-  return { register, get, activate, isActivated, remove, all };
+  return { register, get, activate, isActivated, oldestWaiting, remove, all };
 }

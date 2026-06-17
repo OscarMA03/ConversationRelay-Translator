@@ -66,6 +66,39 @@ test('entries expire after the TTL', () => {
   assert.equal(reg.get('6195764744'), null); // pruned
 });
 
+test('oldestWaiting returns the earliest-registered waiting entry (FIFO)', () => {
+  let t = 1000;
+  const reg = createSessionRegistry({ now: () => t });
+  reg.register({ callerAni: '6190000001' }); // oldest
+  t = 2000;
+  reg.register({ callerAni: '6190000002' });
+  t = 3000;
+  reg.register({ callerAni: '6190000003' });
+  assert.equal(reg.oldestWaiting().callerAni, '6190000001');
+});
+
+test('oldestWaiting with claim hands out each caller once, in order', () => {
+  let t = 1000;
+  const reg = createSessionRegistry({ now: () => t });
+  reg.register({ callerAni: '6190000001' });
+  t = 2000;
+  reg.register({ callerAni: '6190000002' });
+  t = 3000;
+  assert.equal(reg.oldestWaiting({ claim: true }).callerAni, '6190000001');
+  assert.equal(reg.oldestWaiting({ claim: true }).callerAni, '6190000002'); // next one
+  assert.equal(reg.oldestWaiting({ claim: true }), null); // none left waiting
+});
+
+test('oldestWaiting skips already-activated calls', () => {
+  let t = 1000;
+  const reg = createSessionRegistry({ now: () => t });
+  reg.register({ callerAni: '6190000001' });
+  t = 2000;
+  reg.register({ callerAni: '6190000002' });
+  reg.activate('6190000001'); // first one is connected, no longer waiting
+  assert.equal(reg.oldestWaiting().callerAni, '6190000002');
+});
+
 test('remove deletes an entry', () => {
   const reg = createSessionRegistry();
   reg.register({ callerAni: '6195764744' });

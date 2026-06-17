@@ -651,6 +651,31 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // FIFO: hand back the oldest waiting caller's number (longest in line). Use
+    // ?claim=true so each call returns a different caller. NOTE: best-effort —
+    // relies on serial first-in-first-out answering; not safe for many parallel
+    // pickups at once (use the caller number or DTMF for guaranteed correctness).
+    if (url.pathname === '/v1/next-waiting') {
+      const params = await parseTwilioRequest(req);
+      const claim = params.claim === 'true' || params.claim === '1';
+      const entry = sessions.oldestWaiting({ claim });
+      if (!entry) {
+        send(res, 404, JSON.stringify({ ok: false, reason: 'no waiting calls' }), 'application/json');
+        return;
+      }
+      log('next-waiting served', { callerAni: entry.callerAni, claim, createdAt: entry.createdAt });
+      send(res, 200, JSON.stringify({
+        ok: true,
+        callerAni: entry.callerAni,
+        id: entry.id,
+        status: entry.status,
+        createdAt: entry.createdAt,
+        createdAtIso: new Date(entry.createdAt).toISOString(),
+        entry
+      }), 'application/json');
+      return;
+    }
+
     // Is this call activated (bridged) yet? Webex polls/reads this.
     if (url.pathname === '/v1/status') {
       const params = await parseTwilioRequest(req);
