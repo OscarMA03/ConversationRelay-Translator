@@ -20,12 +20,12 @@ function harness({ env = {}, party = {}, translate } = {}) {
     },
     clearTimeout: (t) => { if (t) t.cancelled = true; },
   };
-  // Fire every timer currently scheduled for exactly `ms`, unless cancelled.
-  // Snapshot first so a callback that re-arms a timer at the same `ms` (the
-  // repeating line) doesn't get fired again within this same tick.
+  // Fire every timer currently scheduled for exactly `ms` that hasn't already
+  // fired or been cancelled. Snapshot + `fired` flag model real one-shot timers,
+  // so re-arming a timer at the same `ms` (the repeating cycle) works correctly.
   const runMs = async (ms) => {
-    const due = scheduled.filter((t) => t.ms === ms && !t.cancelled);
-    for (const t of due) await t.fn();
+    const due = scheduled.filter((t) => t.ms === ms && !t.cancelled && !t.fired);
+    for (const t of due) { t.fired = true; await t.fn(); }
   };
   const config = holdMusicConfig(env);
   const callerParty = { ws: {}, sourceLanguageCode: 'es', ...party };
@@ -60,33 +60,34 @@ test('disabled config sends nothing', () => {
   assert.equal(h.sent.length, 0);
 });
 
-test('at the delay it speaks the translated line, then resumes music', async () => {
+test('at the delay it speaks the line, then resumes music after the line pause', async () => {
   const h = harness();
   start(h);
-  await h.runMs(10000);
-  const after = h.sent.slice(1);
-  assert.equal(after.length, 2);
-  assert.deepEqual(after[0], {
+  await h.runMs(10000); // line plays — music NOT resumed yet
+  assert.deepEqual(h.sent.slice(1), [{
     type: 'text',
     token: `[es] ${h.config.message}`,
     last: true,
     preemptible: false,
     interruptible: false,
-  });
-  assert.deepEqual(after[1], {
+  }]);
+  await h.runMs(7000); // line pause elapses — now resume music
+  assert.deepEqual(h.sent.slice(2), [{
     type: 'play',
     source: COWBELL,
     loop: 0,
     preemptible: true,
     interruptible: false,
-  });
+  }]);
 });
 
-test('the reassurance line repeats every repeatMs, each followed by a resume', async () => {
+test('the line/music cycle repeats: line, pause, resume, repeat', async () => {
   const h = harness();
   start(h);
-  await h.runMs(10000); // first line at delayMs
-  await h.runMs(15000); // repeat at repeatMs
+  await h.runMs(10000); // line 1
+  await h.runMs(7000);  // resume music 1, schedules line 2 at repeatMs
+  await h.runMs(15000); // line 2
+  await h.runMs(7000);  // resume music 2
   const texts = h.sent.filter((m) => m.type === 'text');
   const plays = h.sent.filter((m) => m.type === 'play');
   assert.equal(texts.length, 2); // spoken twice
@@ -94,13 +95,15 @@ test('the reassurance line repeats every repeatMs, each followed by a resume', a
   assert.equal(plays.length, 3); // initial + a resume after each line
 });
 
-test('clearHoldMusic stops further repeats', async () => {
+test('clearHoldMusic stops the cycle (no resume, no further lines)', async () => {
   const h = harness();
   start(h);
-  await h.runMs(10000); // first line, schedules the next repeat
+  await h.runMs(10000); // line 1, schedules the resume
   clearHoldMusic(h.party, h.timers);
-  await h.runMs(15000); // would have repeated — but it's cancelled
+  await h.runMs(7000);  // resume would fire — but it's cancelled
+  await h.runMs(15000); // next line would fire — but it's cancelled
   assert.equal(h.sent.filter((m) => m.type === 'text').length, 1);
+  assert.equal(h.sent.filter((m) => m.type === 'play').length, 1); // only the initial
 });
 
 test('English caller keeps the untranslated line', async () => {

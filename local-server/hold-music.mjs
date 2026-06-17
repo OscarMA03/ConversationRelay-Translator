@@ -30,6 +30,7 @@ export function holdMusicConfig(env = process.env) {
     enabled: envBool(env.HOLD_MUSIC_ENABLED, true),
     url: env.HOLD_MUSIC_URL || DEFAULT_MUSIC_URL,
     delayMs: envMs(env.HOLD_MUSIC_DELAY_MS, 10000),
+    linePauseMs: envMs(env.HOLD_LINE_PAUSE_MS, 7000),
     repeatMs: envMs(env.HOLD_MUSIC_REPEAT_MS, 15000),
     timeoutMs: envMs(env.HOLD_TIMEOUT_MS, 45000),
     message: env.HOLD_MUSIC_MESSAGE || DEFAULT_LINE,
@@ -63,16 +64,19 @@ export function startHoldMusic(
   // (a) start looping music — preemptible so a later text can stop it
   playMusic(send, party.ws, config.url);
 
-  // (b) speak the reassurance line ~delayMs in, then repeat it every repeatMs.
-  // Each line resumes the music after it (the line is non-preemptible, so the
-  // following play queues behind it). Re-arming holdLineTimer each time means
-  // clearHoldMusic() cancels the whole chain.
-  const speakAndRepeat = async () => {
+  // (b) Cycle forever until cleared: speak the line (which stops the music), wait
+  // out the line, then resume the music, then wait repeatMs and do it again.
+  // The resume must NOT be sent back-to-back with the line — ConversationRelay
+  // drops a play issued while the line's TTS is still playing, so the music never
+  // comes back. Waiting linePauseMs lets the channel go idle first.
+  const speakLine = async () => {
     speak(send, party.ws, await localize(translate, config.message, lang));
-    playMusic(send, party.ws, config.url);
-    party.holdLineTimer = timers.setTimeout(speakAndRepeat, config.repeatMs);
+    party.holdResumeTimer = timers.setTimeout(() => {
+      playMusic(send, party.ws, config.url);
+      party.holdLineTimer = timers.setTimeout(speakLine, config.repeatMs);
+    }, config.linePauseMs);
   };
-  party.holdLineTimer = timers.setTimeout(speakAndRepeat, config.delayMs);
+  party.holdLineTimer = timers.setTimeout(speakLine, config.delayMs);
 
   // (c) no-answer timeout: apologize (stops the music) then hang up the caller leg
   party.holdTimeoutTimer = timers.setTimeout(async () => {
@@ -82,10 +86,11 @@ export function startHoldMusic(
   }, config.timeoutMs);
 }
 
-/** Cancel both timers. Safe to call multiple times. */
+/** Cancel all hold timers. Safe to call multiple times. */
 export function clearHoldMusic(party, timers = { clearTimeout }) {
-  if (party?.holdLineTimer) { timers.clearTimeout(party.holdLineTimer); party.holdLineTimer = null; }
-  if (party?.holdTimeoutTimer) { timers.clearTimeout(party.holdTimeoutTimer); party.holdTimeoutTimer = null; }
+  for (const key of ['holdLineTimer', 'holdResumeTimer', 'holdTimeoutTimer']) {
+    if (party?.[key]) { timers.clearTimeout(party[key]); party[key] = null; }
+  }
 }
 
 /** Translate to the caller's language; fall back to English rather than going silent. */
