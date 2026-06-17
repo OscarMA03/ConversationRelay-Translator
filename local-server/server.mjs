@@ -667,6 +667,8 @@ const server = http.createServer(async (req, res) => {
       send(res, 200, JSON.stringify({
         ok: true,
         callerAni: entry.callerAni,
+        callerAniE164: entry.callerAniE164,
+        callerAniDisplay: entry.callerAniDisplay,
         id: entry.id,
         status: entry.status,
         createdAt: entry.createdAt,
@@ -686,6 +688,8 @@ const server = http.createServer(async (req, res) => {
         found: Boolean(entry),
         activated: entry?.status === 'activated',
         status: entry?.status ?? 'unknown',
+        callerAniE164: entry?.callerAniE164 ?? null,
+        callerAniDisplay: entry?.callerAniDisplay ?? null,
         entry: entry ?? null
       }), 'application/json');
       return;

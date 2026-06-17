@@ -1,7 +1,24 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { createSessionRegistry, normalizePhone } from './session-registry.mjs';
+import { createSessionRegistry, normalizePhone, toE164, toDisplay } from './session-registry.mjs';
+
+test('toE164 and toDisplay format US numbers', () => {
+  assert.equal(toE164('+16195764744'), '+16195764744');
+  assert.equal(toE164('6195764744'), '+16195764744');
+  assert.equal(toE164('(619) 576-4744'), '+16195764744');
+  assert.equal(toE164(''), '');
+  assert.equal(toDisplay('+16195764744'), '(619) 576-4744');
+  assert.equal(toDisplay('6195764744'), '(619) 576-4744');
+  assert.equal(toDisplay(''), '');
+});
+
+test('register includes E164 and display forms', () => {
+  const reg = createSessionRegistry();
+  const entry = reg.register({ callerAni: ' 16195764744' }); // leading-space (the +→space quirk)
+  assert.equal(entry.callerAniE164, '+16195764744');
+  assert.equal(entry.callerAniDisplay, '(619) 576-4744');
+});
 
 test('normalizePhone canonicalizes formats', () => {
   assert.equal(normalizePhone('+16195764744'), '6195764744');

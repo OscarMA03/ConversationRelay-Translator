@@ -13,6 +13,21 @@ export function normalizePhone(phone) {
   return digits.length === 11 && digits.startsWith('1') ? digits.slice(1) : digits;
 }
 
+/** E.164 form, e.g. "+16195764744". Falls back to "+<digits>" for non-US lengths. */
+export function toE164(phone) {
+  const d = normalizePhone(phone);
+  if (!d) return '';
+  return d.length === 10 ? `+1${d}` : `+${d}`;
+}
+
+/** Human-friendly form, e.g. "(619) 576-4744". Falls back to E.164 for non-10-digit. */
+export function toDisplay(phone) {
+  const d = normalizePhone(phone);
+  if (!d) return '';
+  if (d.length === 10) return `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}`;
+  return toE164(phone);
+}
+
 export function createSessionRegistry({ ttlMs = DEFAULT_TTL_MS, now = () => Date.now() } = {}) {
   /** @type {Map<string, Record<string, any>>} */
   const byKey = new Map();
@@ -37,6 +52,8 @@ export function createSessionRegistry({ ttlMs = DEFAULT_TTL_MS, now = () => Date
       ...extra,
       callerAni,
       key,
+      callerAniE164: toE164(callerAni),
+      callerAniDisplay: toDisplay(callerAni),
       id: id ?? existing?.id ?? null,
       status: existing?.status ?? 'waiting',
       createdAt: existing?.createdAt ?? now(),
