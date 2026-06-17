@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { getCombo, nextCombo } from './combos.mjs';
 import { parseEvents, summarize } from './metrics.mjs';
 import { translateText } from './providers.mjs';
+import { startHoldMusic, clearHoldMusic } from './hold-music.mjs';
 
 const port = Number(process.env.PORT ?? 3000);
 
@@ -310,6 +311,9 @@ async function handleSetup(ws, connectionId, body) {
 
   if (party.whichParty === 'caller') {
     await maybeDialAgent(party);
+    if (process.env.AUTO_DIAL_AGENT === 'true') {
+      startHoldMusic(party, { send: sendWs, translate: translateText });
+    }
     return;
   }
 
@@ -332,6 +336,7 @@ async function handleSetup(ws, connectionId, body) {
     party.translationActive = true;
     party.targetConnectionId = caller.pk;
 
+    clearHoldMusic(caller);
     sendWs(caller.ws, { type: 'text', token: 'The translation session has begun.', last: true });
     sendWs(party.ws, { type: 'text', token: 'The translation session has begun.', last: true });
   }
@@ -402,6 +407,8 @@ async function handlePrompt(connectionId, body) {
 function handleDisconnect(connectionId) {
   const party = connections.get(connectionId);
   if (!party) return;
+
+  clearHoldMusic(party);
 
   party.callStatus = 'disconnected';
   connections.delete(connectionId);
