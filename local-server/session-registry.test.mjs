@@ -60,17 +60,28 @@ test('activate on an unknown number returns null', () => {
   assert.equal(reg.activate('+15550001111'), null);
 });
 
-test('re-register preserves status and createdAt, merges new fields', () => {
+test('re-register after activation starts a fresh waiting call (same number reused)', () => {
   let t = 1000;
   const reg = createSessionRegistry({ now: () => t });
   reg.register({ callerAni: '6195764744' });
   reg.activate('6195764744');
   t = 2000;
-  const entry = reg.register({ callerAni: '6195764744', id: 'late-id' });
-  assert.equal(entry.status, 'activated'); // not reset to waiting
-  assert.equal(entry.createdAt, 1000);
-  assert.equal(entry.id, 'late-id');
-  assert.equal(entry.updatedAt, 2000);
+  const entry = reg.register({ callerAni: '6195764744', id: 'new-call' });
+  assert.equal(entry.status, 'waiting');   // reset — it's a new call, not the old one
+  assert.equal(entry.createdAt, 2000);     // fresh wait-start
+  assert.equal(entry.activatedAt, null);   // cleared
+  assert.equal(entry.id, 'new-call');
+});
+
+test('re-register while still waiting keeps the original createdAt', () => {
+  let t = 1000;
+  const reg = createSessionRegistry({ now: () => t });
+  reg.register({ callerAni: '6195764744' });
+  t = 1500;
+  const entry = reg.register({ callerAni: '6195764744', id: 'add-id' });
+  assert.equal(entry.status, 'waiting');
+  assert.equal(entry.createdAt, 1000);     // preserved — same call, FIFO intact
+  assert.equal(entry.id, 'add-id');
 });
 
 test('entries expire after the TTL', () => {

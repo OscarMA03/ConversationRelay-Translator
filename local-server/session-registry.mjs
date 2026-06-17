@@ -47,6 +47,12 @@ export function createSessionRegistry({ ttlMs = DEFAULT_TTL_MS, now = () => Date
     const key = normalizePhone(callerAni);
     if (!key) return null;
     const existing = byKey.get(key) ?? null;
+    // A register marks the start of a waiting call. If the prior entry for this
+    // number is already finished (activated/claimed) — e.g. the same number
+    // called again — treat this as a FRESH call: reset to waiting with a new
+    // createdAt. Only a still-'waiting' entry (a re-register within the same
+    // call) keeps its original createdAt so FIFO order is preserved.
+    const freshCall = !existing || existing.status !== 'waiting';
     const entry = {
       ...(existing ?? {}),
       ...extra,
@@ -55,8 +61,10 @@ export function createSessionRegistry({ ttlMs = DEFAULT_TTL_MS, now = () => Date
       callerAniE164: toE164(callerAni),
       callerAniDisplay: toDisplay(callerAni),
       id: id ?? existing?.id ?? null,
-      status: existing?.status ?? 'waiting',
-      createdAt: existing?.createdAt ?? now(),
+      status: 'waiting',
+      createdAt: freshCall ? now() : existing.createdAt,
+      activatedAt: null,
+      claimedAt: null,
       updatedAt: now()
     };
     byKey.set(key, entry);
