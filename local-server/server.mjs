@@ -369,6 +369,31 @@ function bridgeLegs(agentParty, caller) {
   sendWs(agentParty.ws, { type: 'text', token: 'The translation session has begun.', last: true });
 }
 
+// Canonical phone key for correlation matching. Strips formatting and a US
+// country code so "+16195764744", "6195764744", "(619) 576-4744" all compare equal.
+function normalizePhone(phone) {
+  const digits = String(phone ?? '').replace(/\D/g, '');
+  if (!digits) return '';
+  return digits.length === 11 && digits.startsWith('1') ? digits.slice(1) : digits;
+}
+
+// Find an agent leg that is awaiting accept whose caller's number matches `ani`.
+// There can be hundreds of concurrent sessions; we match on the caller leg's
+// From and, if more than one matches (same-number collision), take the most
+// recent still-waiting one (connections preserves insertion order).
+function findAwaitingByAni(ani) {
+  const key = normalizePhone(ani);
+  if (!key) return null;
+  let match = null;
+  for (const party of connections.values()) {
+    if (party.whichParty !== 'callee' || !party.awaitingAccept) continue;
+    const caller = connections.get(party.targetConnectionId);
+    if (!caller || normalizePhone(caller.From) !== key) continue;
+    match = { agentParty: party, caller };
+  }
+  return match;
+}
+
 const AGENT_WHISPER_REPEAT_MS = Number(process.env.AGENT_ACCEPT_REPEAT_MS) || 15000;
 
 // Turn a phone number into something TTS reads digit-by-digit, e.g.
@@ -574,6 +599,30 @@ const server = http.createServer(async (req, res) => {
 
     if (url.pathname === '/last-inbound') {
       send(res, 200, JSON.stringify(inboundPayloads, null, 2), 'application/json');
+      return;
+    }
+
+    // Out-of-band agent-answer signal. Webex's AgentAnswer node calls this with
+    // the caller's number; we resolve the matching awaiting session (among the
+    // many in flight) and bridge it. Accepts callerAni/phoneNumber/from via query
+    // params or POST body (form or JSON).
+    if (url.pathname === '/v1/call-answered') {
+      const params = await parseTwilioRequest(req);
+      const ani = params.callerAni ?? params.phoneNumber ?? params.from ?? params.From;
+      const match = findAwaitingByAni(ani);
+      if (!match) {
+        log('call-answered: no awaiting session', { callerAni: ani ?? null });
+        send(res, 404, JSON.stringify({ ok: false, reason: 'no awaiting session for that number', callerAni: ani ?? null }), 'application/json');
+        return;
+      }
+      bridgeLegs(match.agentParty, match.caller);
+      log('call-answered: bridged via HTTP', { callerAni: ani, agent: match.agentParty.pk, caller: match.caller.pk });
+      send(res, 200, JSON.stringify({
+        ok: true,
+        bridged: true,
+        agentCallSid: match.agentParty.callSid,
+        callerCallSid: match.caller.callSid
+      }), 'application/json');
       return;
     }
 
