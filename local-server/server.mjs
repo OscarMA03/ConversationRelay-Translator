@@ -371,14 +371,31 @@ function bridgeLegs(agentParty, caller) {
 
 const AGENT_WHISPER_REPEAT_MS = Number(process.env.AGENT_ACCEPT_REPEAT_MS) || 15000;
 
-// Repeatedly prompt the agent leg to press the accept key. Repeats because a
-// human joins the queued call late and must hear the prompt when they arrive.
+// Turn a phone number into something TTS reads digit-by-digit, e.g.
+// "+16195764744" -> "6 1 9, 5 7 6, 4 7 4 4". Returns '' if no number.
+function spokenPhone(phone) {
+  const digits = String(phone ?? '').replace(/\D/g, '');
+  if (!digits) return '';
+  const local = digits.length === 11 && digits.startsWith('1') ? digits.slice(1) : digits;
+  const group = (s) => s.split('').join(' ');
+  if (local.length === 10) {
+    return `${group(local.slice(0, 3))}, ${group(local.slice(3, 6))}, ${group(local.slice(6))}`;
+  }
+  return group(local);
+}
+
+// Repeatedly prompt the agent leg to press the accept key, announcing the
+// caller's number. Repeats because a human joins the queued call late and must
+// hear the prompt (and the number) when they arrive. The number is built from
+// digits and spliced in after translation so the translator can't mangle it.
 async function startAgentWhisper(agentParty) {
   const digit = process.env.AGENT_ACCEPT_DIGIT || '1';
-  const text = await localizedGreeting(
-    `You have a translated call waiting. Press ${digit} to connect.`,
-    agentParty.sourceLanguageCode
-  );
+  const lang = agentParty.sourceLanguageCode;
+  const number = spokenPhone(agentParty.callerPhone);
+  const action = await localizedGreeting(`Press ${digit} to connect.`, lang);
+  const text = number
+    ? `${await localizedGreeting('Incoming translated call from', lang)} ${number}. ${action}`
+    : `${await localizedGreeting('You have a translated call waiting.', lang)} ${action}`;
   const whisper = () => {
     if (!agentParty.awaitingAccept) return;
     sendWs(agentParty.ws, { type: 'text', token: text, last: true });
