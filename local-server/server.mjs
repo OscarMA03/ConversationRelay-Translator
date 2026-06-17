@@ -414,6 +414,18 @@ function findAwaitingByAni(ani) {
   return match;
 }
 
+// Every agent leg currently awaiting accept, paired with its caller. Used by the
+// HTTP accept when no number is given — safe to bridge only if there's exactly one.
+function listAwaiting() {
+  const out = [];
+  for (const party of connections.values()) {
+    if (party.whichParty !== 'callee' || !party.awaitingAccept) continue;
+    const caller = connections.get(party.targetConnectionId);
+    if (caller) out.push({ agentParty: party, caller });
+  }
+  return out;
+}
+
 const AGENT_WHISPER_REPEAT_MS = Number(process.env.AGENT_ACCEPT_REPEAT_MS) || 15000;
 
 // Turn a phone number into something TTS reads digit-by-digit, e.g.
@@ -661,17 +673,38 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/v1/call-answered') {
       const params = await parseTwilioRequest(req);
       const ani = params.callerAni ?? params.phoneNumber ?? params.from ?? params.From;
-      const match = findAwaitingByAni(ani);
-      if (!match) {
-        log('call-answered: no awaiting session', { callerAni: ani ?? null });
-        send(res, 404, JSON.stringify({ ok: false, reason: 'no awaiting session for that number', callerAni: ani ?? null }), 'application/json');
-        return;
+
+      let match;
+      if (ani) {
+        // Targeted: activate exactly the call whose caller number matches.
+        match = findAwaitingByAni(ani);
+        if (!match) {
+          log('call-answered: no awaiting session', { callerAni: ani });
+          send(res, 404, JSON.stringify({ ok: false, reason: 'no awaiting session for that number', callerAni: ani }), 'application/json');
+          return;
+        }
+      } else {
+        // No number given: only safe if exactly one call is waiting. Refuse to
+        // guess when several are in flight.
+        const awaiting = listAwaiting();
+        if (awaiting.length !== 1) {
+          log('call-answered: need callerAni', { awaiting: awaiting.length });
+          send(res, 409, JSON.stringify({
+            ok: false,
+            reason: awaiting.length === 0 ? 'no calls awaiting' : 'multiple calls awaiting — include callerAni',
+            awaiting: awaiting.length
+          }), 'application/json');
+          return;
+        }
+        match = awaiting[0];
       }
+
       bridgeLegs(match.agentParty, match.caller);
-      log('call-answered: bridged via HTTP', { callerAni: ani, agent: match.agentParty.pk, caller: match.caller.pk });
+      log('call-answered: bridged via HTTP', { callerAni: ani ?? match.caller.From, agent: match.agentParty.pk, caller: match.caller.pk });
       send(res, 200, JSON.stringify({
         ok: true,
         bridged: true,
+        callerAni: match.caller.From,
         agentCallSid: match.agentParty.callSid,
         callerCallSid: match.caller.callSid
       }), 'application/json');
