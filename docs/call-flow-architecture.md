@@ -30,6 +30,9 @@ sequenceDiagram
     actor Agent as Agent / User (English)
 
     Cust->>F1: Calls in
+    F1->>Cust: Menu: "Press 1 for English, 2 for Spanish"
+    Cust->>F1: Chooses Spanish
+    Note over F1: Spanish → translation path<br/>(English → normal routing, no translation)
     F1->>MW: POST /v1/register (callerAni, interactionId)
     Note over MW: Cache session — status = waiting
     F1->>TW: BridgedTransfer → Twilio number (PSTN)
@@ -65,7 +68,9 @@ sequenceDiagram
 ```mermaid
 flowchart TD
     A([Customer calls in]) --> B[WxCC Flow 1]
-    B --> C[/POST /v1/register<br/>cache caller# + interactionId<br/>status = waiting/]
+    B --> M{Menu: language?<br/>1 = English · 2 = Spanish}
+    M -->|English| EN[Route to English agent<br/>no translation]
+    M -->|Spanish| C[/POST /v1/register<br/>cache caller# + interactionId<br/>status = waiting/]
     C --> D[BridgedTransfer → Twilio number]
     D --> E[Twilio: POST /twiml/inbound<br/>returns ConversationRelay TwiML]
     E --> F[Caller leg WebSocket connects]
