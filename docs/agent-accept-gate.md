@@ -62,6 +62,11 @@ are ended.
 
 ## The code
 
+> The gate logic lives in `local-server/accept-gate.mjs` (a `createAcceptGate({…})`
+> factory wired with its side-effecting dependencies in `local-server/server.mjs`),
+> extracted so it can be unit-tested with injected fakes — see
+> `local-server/accept-gate.test.mjs`. The snippets below are illustrative.
+
 ### 1. The gate — don't bridge on answer; wait for the keypress
 
 In the agent-leg (`callee`) setup handler:
@@ -141,7 +146,7 @@ async function startAgentWhisper(agentParty) {
   const whisper = () => {
     if (!agentParty.awaitingAccept) return;             // stop once accepted/gone
     sendWs(agentParty.ws, { type: 'text', token: text, last: true });
-    agentParty.whisperTimer = setTimeout(whisper, AGENT_WHISPER_REPEAT_MS);
+    agentParty.whisperTimer = setTimeout(whisper, repeatMs);   // from AGENT_ACCEPT_REPEAT_MS (default 15000)
   };
   whisper();
 }

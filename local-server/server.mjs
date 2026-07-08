@@ -11,7 +11,8 @@ import { getCombo, nextCombo } from './combos.mjs';
 import { parseEvents, summarize } from './metrics.mjs';
 import { translateText } from './providers.mjs';
 import { startHoldMusic, clearHoldMusic, holdMusicConfig } from './hold-music.mjs';
-import { createSessionRegistry, normalizePhone } from './session-registry.mjs';
+import { createSessionRegistry } from './session-registry.mjs';
+import { createAcceptGate } from './accept-gate.mjs';
 
 const port = Number(process.env.PORT ?? 3000);
 
@@ -356,136 +357,24 @@ async function handleSetup(ws, connectionId, body) {
       return;
     }
 
-    // With an ACD/queue (e.g. Webex) as the agent endpoint, the outbound call is
-    // auto-answered into a queue before a human is present. So when the accept
-    // gate is on, don't bridge on "answered" — wait for the human agent to press
-    // the accept key (handleDtmf). The caller stays on hold music until then.
-    if (process.env.AGENT_ACCEPT_DTMF === 'true') {
-      party.awaitingAccept = true;
-      log('agent leg connected — awaiting DTMF accept', { connectionId, callerId: caller.pk });
-      await startAgentWhisper(party);
-      return;
-    }
-
-    bridgeLegs(party, caller);
+    // With an ACD/queue (e.g. Webex) as the agent endpoint the outbound call is
+    // auto-answered into a queue before a human is present, so the accept gate
+    // defers bridging until the human presses the accept key (see accept-gate.mjs).
+    await acceptGate.onAgentConnected(party, caller);
   }
 }
 
-// Link the caller and agent legs: activate translation both ways, stop the
-// caller's hold music, and announce the session. Used both when bridging
-// immediately (no accept gate) and when the agent accepts via DTMF.
-function bridgeLegs(agentParty, caller) {
-  caller.translationActive = true;
-  caller.onHold = false;
-  caller.targetConnectionId = agentParty.pk;
-  caller.targetLanguageCode = agentParty.sourceLanguageCode;
-  caller.targetLanguage = agentParty.sourceLanguage;
-  caller.targetTranscriptionProvider = agentParty.sourceTranscriptionProvider;
-  caller.targetTtsProvider = agentParty.sourceTtsProvider;
-  caller.targetVoice = agentParty.sourceVoice;
-  caller.targetCallSid = agentParty.callSid;
-
-  agentParty.translationActive = true;
-  agentParty.awaitingAccept = false;
-  agentParty.targetConnectionId = caller.pk;
-
-  clearHoldMusic(caller);
-  clearAgentWhisper(agentParty);
-  // Mark the shared session activated so either flow can see it's connected.
-  sessions.activate(caller.From, { callerConnectionId: caller.pk, agentConnectionId: agentParty.pk });
-  sendWs(caller.ws, { type: 'text', token: 'The translation session has begun.', last: true });
-  sendWs(agentParty.ws, { type: 'text', token: 'The translation session has begun.', last: true });
-}
-
-// Find an agent leg that is awaiting accept whose caller's number matches `ani`.
-// There can be hundreds of concurrent sessions; we match on the caller leg's
-// From and, if more than one matches (same-number collision), take the most
-// recent still-waiting one (connections preserves insertion order).
-function findAwaitingByAni(ani) {
-  const key = normalizePhone(ani);
-  if (!key) return null;
-  let match = null;
-  for (const party of connections.values()) {
-    if (party.whichParty !== 'callee' || !party.awaitingAccept) continue;
-    const caller = connections.get(party.targetConnectionId);
-    if (!caller || normalizePhone(caller.From) !== key) continue;
-    match = { agentParty: party, caller };
-  }
-  return match;
-}
-
-// Every agent leg currently awaiting accept, paired with its caller. Used by the
-// HTTP accept when no number is given — safe to bridge only if there's exactly one.
-function listAwaiting() {
-  const out = [];
-  for (const party of connections.values()) {
-    if (party.whichParty !== 'callee' || !party.awaitingAccept) continue;
-    const caller = connections.get(party.targetConnectionId);
-    if (caller) out.push({ agentParty: party, caller });
-  }
-  return out;
-}
-
-const AGENT_WHISPER_REPEAT_MS = Number(process.env.AGENT_ACCEPT_REPEAT_MS) || 15000;
-
-// Turn a phone number into something TTS reads digit-by-digit, e.g.
-// "+16195764744" -> "6 1 9, 5 7 6, 4 7 4 4". Returns '' if no number.
-function spokenPhone(phone) {
-  const digits = String(phone ?? '').replace(/\D/g, '');
-  if (!digits) return '';
-  const local = digits.length === 11 && digits.startsWith('1') ? digits.slice(1) : digits;
-  const group = (s) => s.split('').join(' ');
-  if (local.length === 10) {
-    return `${group(local.slice(0, 3))}, ${group(local.slice(3, 6))}, ${group(local.slice(6))}`;
-  }
-  return group(local);
-}
-
-// Repeatedly prompt the agent leg to press the accept key, announcing the
-// caller's number. Repeats because a human joins the queued call late and must
-// hear the prompt (and the number) when they arrive. The number is built from
-// digits and spliced in after translation so the translator can't mangle it.
-async function startAgentWhisper(agentParty) {
-  const digit = process.env.AGENT_ACCEPT_DIGIT || '1';
-  const lang = agentParty.sourceLanguageCode;
-  const number = spokenPhone(agentParty.callerPhone);
-  const action = await localizedGreeting(`Press ${digit} to connect.`, lang);
-  const text = number
-    ? `${await localizedGreeting('Incoming translated call from', lang)} ${number}. ${action}`
-    : `${await localizedGreeting('You have a translated call waiting.', lang)} ${action}`;
-  const whisper = () => {
-    if (!agentParty.awaitingAccept) return;
-    sendWs(agentParty.ws, { type: 'text', token: text, last: true });
-    agentParty.whisperTimer = setTimeout(whisper, AGENT_WHISPER_REPEAT_MS);
-  };
-  whisper();
-}
-
-function clearAgentWhisper(agentParty) {
-  if (agentParty?.whisperTimer) {
-    clearTimeout(agentParty.whisperTimer);
-    agentParty.whisperTimer = null;
-  }
-}
-
-// The human agent pressed a key. If it's the accept key and this leg is waiting,
-// bridge the call (stops the caller's hold music and starts translation).
-function handleDtmf(connectionId, body) {
-  const party = connections.get(connectionId);
-  if (!party) return;
-  const digit = String(body.digit ?? body.digits ?? '');
-  log('dtmf', { connectionId, whichParty: party.whichParty, digit });
-  if (!party.awaitingAccept) return;
-  if (digit !== (process.env.AGENT_ACCEPT_DIGIT || '1')) return;
-
-  const caller = connections.get(party.targetConnectionId);
-  if (!caller) {
-    sendWs(party.ws, { type: 'text', token: 'Could not find the caller leg to connect.', last: true });
-    return;
-  }
-  log('agent accepted call', { connectionId, callerId: caller.pk });
-  bridgeLegs(party, caller);
-}
+// The accept gate (bridge/defer, DTMF accept, whisper, awaiting lookups) lives in
+// accept-gate.mjs. Wire its side-effecting dependencies in once here; server code
+// calls acceptGate.<fn>(...). Behavior is identical to the previous inline version.
+const acceptGate = createAcceptGate({
+  connections,
+  send: sendWs,
+  clearHoldMusic,
+  activateSession: (from, info) => sessions.activate(from, info),
+  localize: localizedGreeting,
+  log,
+});
 
 async function handlePrompt(connectionId, body) {
   const party = connections.get(connectionId);
@@ -558,7 +447,7 @@ function handleDisconnect(connectionId) {
   if (!party) return;
 
   clearHoldMusic(party);
-  clearAgentWhisper(party);
+  acceptGate.clearAgentWhisper(party);
 
   party.callStatus = 'disconnected';
   connections.delete(connectionId);
@@ -570,7 +459,7 @@ function handleDisconnect(connectionId) {
     // If the agent leg was still waiting to accept (e.g. caller hung up or timed
     // out on hold), stop whispering and hang that leg up too.
     if (target.awaitingAccept) {
-      clearAgentWhisper(target);
+      acceptGate.clearAgentWhisper(target);
       target.awaitingAccept = false;
       sendWs(target.ws, { type: 'end', handoffData: JSON.stringify({ reasonCode: 'caller-gone' }) });
     } else {
@@ -706,7 +595,7 @@ const server = http.createServer(async (req, res) => {
       let match;
       if (ani) {
         // Targeted: activate exactly the call whose caller number matches.
-        match = findAwaitingByAni(ani);
+        match = acceptGate.findAwaitingByAni(ani);
         if (!match) {
           log('call-answered: no awaiting session', { callerAni: ani });
           send(res, 404, JSON.stringify({ ok: false, reason: 'no awaiting session for that number', callerAni: ani }), 'application/json');
@@ -715,7 +604,7 @@ const server = http.createServer(async (req, res) => {
       } else {
         // No number given: only safe if exactly one call is waiting. Refuse to
         // guess when several are in flight.
-        const awaiting = listAwaiting();
+        const awaiting = acceptGate.listAwaiting();
         if (awaiting.length !== 1) {
           log('call-answered: need callerAni', { awaiting: awaiting.length });
           send(res, 409, JSON.stringify({
@@ -728,7 +617,7 @@ const server = http.createServer(async (req, res) => {
         match = awaiting[0];
       }
 
-      bridgeLegs(match.agentParty, match.caller);
+      acceptGate.bridgeLegs(match.agentParty, match.caller);
       log('call-answered: bridged via HTTP', { callerAni: ani ?? match.caller.From, agent: match.agentParty.pk, caller: match.caller.pk });
       send(res, 200, JSON.stringify({
         ok: true,
@@ -761,7 +650,7 @@ wss.on('connection', (ws) => {
       if (body.type === 'setup') await handleSetup(ws, connectionId, body);
       else if (body.type === 'prompt') await handlePrompt(connectionId, body);
       else if (body.type === 'interrupt') log('interrupt', body);
-      else if (body.type === 'dtmf') handleDtmf(connectionId, body);
+      else if (body.type === 'dtmf') acceptGate.handleDtmf(connectionId, body);
       else if (body.type === 'error') log('ConversationRelay error', body);
     } catch (error) {
       log('WebSocket message error:', error);
